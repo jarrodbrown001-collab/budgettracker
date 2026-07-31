@@ -9,6 +9,13 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      workbox: {
+        // Activate a newly-deployed service worker immediately instead of leaving it
+        // "waiting" until every open tab of the old version closes — otherwise a
+        // returning user can be stuck on stale cached content for a long time.
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
         name: 'BudgetTracker',
         short_name: 'BudgetTracker',
