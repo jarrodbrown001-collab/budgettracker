@@ -1,0 +1,143 @@
+// Seed data ported from Brown_Family_Budget_EveryDollar.xlsx (June 2026 sheet)
+let n = 0
+const id = () => `seed-${++n}`
+
+export function seedJune2026() {
+  n = 0
+  return {
+    label: 'June 2026',
+    income: [
+      { id: id(), name: 'Jarrod 1st Paycheck', planned: 4145 },
+      { id: id(), name: 'Jarrod 2nd Paycheck', planned: 4145 },
+      { id: id(), name: 'Jarrod VA Benefits', planned: 2802.3 },
+    ],
+    groups: [
+      {
+        id: id(),
+        name: 'Giving / Generosity',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'LakePointe', due: 'Due 15th', planned: 1150, spent: 0 },
+          { id: id(), name: 'Generosity', due: '', planned: 33.81, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Monthly Expenses',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'Groceries', due: '', planned: 1077.68, spent: 0 },
+          { id: id(), name: 'Beauty/Body Care', due: '', planned: 40, spent: 0 },
+          { id: id(), name: 'Family Fun', due: '', planned: 60, spent: 0 },
+          { id: id(), name: 'Eating Out', due: '', planned: 60, spent: 0 },
+          { id: id(), name: 'Petrol', due: '', planned: 160, spent: 0 },
+          { id: id(), name: 'J & A Dates', due: '', planned: 80, spent: 0 },
+          { id: id(), name: 'J & V Dates', due: '', planned: 40, spent: 0 },
+          { id: id(), name: 'J & P Dates', due: '', planned: 40, spent: 0 },
+          { id: id(), name: 'LG Fellowship', due: '', planned: 80, spent: 0 },
+          { id: id(), name: 'Spiritual Growth Meetings', due: '', planned: 30, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Monthly Bills',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'M&T Mortgage', due: 'Due 1st', planned: 2742.65, spent: 0 },
+          { id: id(), name: 'M&T Extra House Payment', due: '', planned: 200, spent: 0 },
+          { id: id(), name: 'Rockwall Utilities', due: 'Due 16th', planned: 125, spent: 0 },
+          { id: id(), name: 'Atmos Gas', due: 'Due 14th', planned: 50.08, spent: 0 },
+          { id: id(), name: 'Lawn Care - Grass/Weeds', due: '', planned: 45, spent: 0 },
+          { id: id(), name: 'Lawn Care - Mowing', due: '', planned: 120, spent: 0 },
+          { id: id(), name: 'FEC Electric', due: 'Due 28th', planned: 200, spent: 0 },
+          { id: id(), name: 'AT&T Internet', due: 'Due 27th', planned: 95.9, spent: 0 },
+          { id: id(), name: 'AT&T Cell', due: 'Due 27th', planned: 192.25, spent: 0 },
+          { id: id(), name: 'Pet Waste Disposal', due: '', planned: 40, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Insurances',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'USAA Life Insurance - JB #1', due: '', planned: 77.98, spent: 0 },
+          { id: id(), name: 'USAA Life Insurance - JB #2', due: '', planned: 32.49, spent: 0 },
+          { id: id(), name: 'USAA Bundled Insurance', due: '', planned: 473.01, spent: 0 },
+          { id: id(), name: 'USAA Life Insurance - AB', due: '', planned: 66, spent: 0 },
+          { id: id(), name: 'Zander ID Insurance', due: '', planned: 12.9, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Subscriptions',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'Nintendo', due: '', planned: 8.49, spent: 0 },
+          { id: id(), name: 'Amazon Prime Video', due: '', planned: 12.97, spent: 0 },
+          { id: id(), name: 'Spotify Music', due: '', planned: 23.8, spent: 0 },
+          { id: id(), name: 'Office 365', due: '', planned: 14.06, spent: 0 },
+          { id: id(), name: 'iCloud', due: '', planned: 10, spent: 0 },
+          { id: id(), name: 'CineMark Movies', due: '', planned: 23.8, spent: 0 },
+          { id: id(), name: 'Netflix', due: 'Due 16th', planned: 19.47, spent: 0 },
+          { id: id(), name: 'Peacock Streaming', due: '', planned: 18.39, spent: 0 },
+          { id: id(), name: 'Ring Camera', due: '', planned: 10.81, spent: 0 },
+          { id: id(), name: 'Eero Security', due: '', planned: 10.65, spent: 0 },
+          { id: id(), name: 'Life360', due: '', planned: 14.99, spent: 0 },
+          { id: id(), name: 'Disney/Hulu Bundle', due: '', planned: 21.64, spent: 0 },
+          { id: id(), name: '1Password App', due: 'Due 23rd', planned: 4, spent: 0 },
+          { id: id(), name: 'Paramount Plus & Showtime', due: '', planned: 6.49, spent: 0 },
+          { id: id(), name: 'YouTube Premium', due: '', planned: 17.99, spent: 0 },
+          { id: id(), name: 'Claude Pro', due: '', planned: 20, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Digital Envelopes / Sinking Funds',
+        account: 'USAA – 3399',
+        items: [
+          { id: id(), name: 'Christmas', due: '', planned: 150, spent: 0 },
+          { id: id(), name: 'Family Vacation', due: '', planned: 5, spent: 0 },
+          { id: id(), name: 'J & A Special Occasion', due: '', planned: 295, spent: 0 },
+          { id: id(), name: 'Jarrod Misc.', due: '', planned: 125, spent: 0 },
+          { id: id(), name: 'Amanda Misc.', due: '', planned: 125, spent: 0 },
+          { id: id(), name: 'Birthdays/Special Occasion', due: '', planned: 205, spent: 0 },
+          { id: id(), name: 'Clothes/Shoes', due: '', planned: 100, spent: 0 },
+          { id: id(), name: 'Piper Allowance', due: '', planned: 50, spent: 0 },
+          { id: id(), name: 'Hair', due: '', planned: 100, spent: 0 },
+          { id: id(), name: 'Pet Grooming & Vet', due: '', planned: 150, spent: 0 },
+          { id: id(), name: 'Pet Food', due: '', planned: 30, spent: 0 },
+          { id: id(), name: 'Hosting/Generosity', due: '', planned: 0, spent: 0 },
+          { id: id(), name: "Kid's School", due: '', planned: 0, spent: 0 },
+          { id: id(), name: 'Dental/Health Expenses', due: '', planned: 0, spent: 0 },
+          { id: id(), name: 'HOA Dues', due: '', planned: 45, spent: 0 },
+          { id: id(), name: 'Vehicle Expenses', due: '', planned: 200, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'To Emergency Fund',
+        account: 'Ally – 8204',
+        items: [{ id: id(), name: 'Emergency Fund', due: '', planned: 500, spent: 0 }],
+      },
+      {
+        id: id(),
+        name: 'To Ally Savings',
+        account: 'Ally – 8196',
+        items: [
+          { id: id(), name: 'Vehicle Sinking', due: '', planned: 0, spent: 0 },
+          { id: id(), name: 'House Maintenance', due: '', planned: 100, spent: 0 },
+          { id: id(), name: 'College', due: '', planned: 500, spent: 0 },
+          { id: id(), name: "Piper's Graduation Trip", due: '', planned: 100, spent: 0 },
+          { id: id(), name: 'England Vacation', due: '', planned: 100, spent: 0 },
+          { id: id(), name: 'J & A Roth IRAs', due: '', planned: 650, spent: 0 },
+        ],
+      },
+      {
+        id: id(),
+        name: 'Debt',
+        account: 'Baby Step 2 – smallest balance first',
+        items: [],
+      },
+    ],
+  }
+}
