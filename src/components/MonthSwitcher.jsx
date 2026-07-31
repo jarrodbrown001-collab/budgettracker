@@ -12,6 +12,25 @@ function labelFor(key) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
+function cloneForward(source) {
+  const groups = source.groups.map((g) => ({
+    id: newId(),
+    name: g.name,
+    account: g.account,
+    items: g.items.map((it) => ({
+      id: newId(),
+      name: it.name,
+      due: it.due,
+      planned: it.planned,
+      spent: 0,
+      balance: it.balance ?? 0,
+      apr: it.apr ?? 0,
+    })),
+  }))
+  const income = source.income.map((s) => ({ id: newId(), name: s.name, planned: s.planned }))
+  return { income, groups }
+}
+
 export default function MonthSwitcher() {
   const { doc, setDoc } = useBudget()
   const monthKeys = Object.keys(doc.months).sort()
@@ -19,24 +38,19 @@ export default function MonthSwitcher() {
   const goTo = (key) => {
     setDoc((prev) => {
       if (prev.months[key]) return { ...prev, activeMonth: key }
-      const source = prev.months[prev.activeMonth]
-      const groups = source.groups.map((g) => ({
-        id: newId(),
-        name: g.name,
-        account: g.account,
-        items: g.items.map((it) => ({
-          id: newId(),
-          name: it.name,
-          due: it.due,
-          planned: it.planned,
-          spent: 0,
-        })),
-      }))
-      const income = source.income.map((s) => ({ id: newId(), name: s.name, planned: s.planned }))
+
+      // Only fabricate data when moving to a new month *after* the latest one on record
+      // (copy-forward planned amounts, spent reset to 0). Jumping to an earlier,
+      // never-recorded month starts blank instead of cloning unrelated data into it.
+      const keys = Object.keys(prev.months).sort()
+      const latest = keys[keys.length - 1]
+      const isForward = key > latest
+      const month = isForward ? { label: labelFor(key), ...cloneForward(prev.months[latest]) } : { label: labelFor(key), income: [], groups: [] }
+
       return {
         ...prev,
         activeMonth: key,
-        months: { ...prev.months, [key]: { label: labelFor(key), income, groups } },
+        months: { ...prev.months, [key]: month },
       }
     })
   }

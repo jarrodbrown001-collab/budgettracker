@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId } from '../lib/storage'
 import { money } from '../lib/budget'
 import MoneyInput from './MoneyInput'
+import ConfirmDialog from './ConfirmDialog'
 
 export default function IncomeSection() {
   const { month, updateMonth } = useBudget()
   const total = month.income.reduce((s, i) => s + (Number(i.planned) || 0), 0)
+  const [pendingRemove, setPendingRemove] = useState(null)
 
   const patch = (id, p) => {
     updateMonth((m) => ({ ...m, income: m.income.map((i) => (i.id === id ? { ...i, ...p } : i)) }))
@@ -13,8 +16,9 @@ export default function IncomeSection() {
   const add = () => {
     updateMonth((m) => ({ ...m, income: [...m.income, { id: newId(), name: '', planned: 0 }] }))
   }
-  const remove = (id) => {
-    updateMonth((m) => ({ ...m, income: m.income.filter((i) => i.id !== id) }))
+  const runRemove = () => {
+    updateMonth((m) => ({ ...m, income: m.income.filter((i) => i.id !== pendingRemove.id) }))
+    setPendingRemove(null)
   }
 
   return (
@@ -37,7 +41,7 @@ export default function IncomeSection() {
           <button
             type="button"
             aria-label={`Remove ${i.name || 'income source'}`}
-            onClick={() => remove(i.id)}
+            onClick={() => setPendingRemove({ id: i.id, label: i.name || 'this income source' })}
             className="text-slate-300 hover:text-red-500"
           >
             ×
@@ -50,6 +54,14 @@ export default function IncomeSection() {
         </button>
         <div className="text-sm font-semibold">Total Planned Income: {money(total)}</div>
       </div>
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        title="Remove income source?"
+        message={`This permanently removes "${pendingRemove?.label}". This can't be undone.`}
+        onConfirm={runRemove}
+        onCancel={() => setPendingRemove(null)}
+      />
     </section>
   )
 }

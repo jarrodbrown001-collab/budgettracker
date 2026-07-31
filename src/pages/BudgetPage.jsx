@@ -3,9 +3,10 @@ import { newId } from '../lib/storage'
 import IncomeSection from '../components/IncomeSection'
 import GroupCard from '../components/GroupCard'
 import SummaryBar from '../components/SummaryBar'
+import AccountRollup from '../components/AccountRollup'
 
 export default function BudgetPage() {
-  const { doc, month, updateMonth } = useBudget()
+  const { month, updateMonth } = useBudget()
 
   const addGroup = () => {
     updateMonth((m) => ({
@@ -38,6 +39,7 @@ export default function BudgetPage() {
       </button>
 
       <SummaryBar />
+      <AccountRollup />
     </div>
   )
 }

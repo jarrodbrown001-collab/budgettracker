@@ -30,3 +30,21 @@ export function savingsPlanned(month) {
     .filter((g) => names.includes(g.name))
     .reduce((s, g) => s + groupTotals(g).planned, 0)
 }
+
+// Rolls category totals up by bank account, so it's clear how much needs to sit in
+// each account before its due dates hit.
+export function accountTotals(month) {
+  const byAccount = new Map()
+  for (const g of month.groups) {
+    const key = g.account?.trim() || 'Unassigned'
+    const t = groupTotals(g)
+    const prev = byAccount.get(key) || { account: key, planned: 0, spent: 0, remaining: 0 }
+    byAccount.set(key, {
+      account: key,
+      planned: prev.planned + t.planned,
+      spent: prev.spent + t.spent,
+      remaining: prev.remaining + t.remaining,
+    })
+  }
+  return [...byAccount.values()].sort((a, b) => b.planned - a.planned)
+}
