@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId } from '../lib/storage'
-import { groupTotals, money, remaining } from '../lib/budget'
+import { groupTotals, money, remaining, isDebtGroup } from '../lib/budget'
 import MoneyInput from './MoneyInput'
 import ConfirmDialog from './ConfirmDialog'
-
-const isDebtGroup = (name) => name.trim().toLowerCase() === 'debt'
 
 export default function GroupCard({ group }) {
   const { updateMonth } = useBudget()
@@ -28,9 +26,13 @@ export default function GroupCard({ group }) {
     patchGroup({
       items: [
         ...group.items,
-        { id: newId(), name: '', due: '', planned: 0, spent: 0, balance: 0, apr: 0 },
+        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0 },
       ],
     })
+  }
+
+  const togglePaid = (it, paid) => {
+    patchItem(it.id, { paid, spent: paid ? it.planned : 0 })
   }
 
   const sortByBalance = () => {
@@ -55,24 +57,26 @@ export default function GroupCard({ group }) {
   }
 
   const colTemplate = debt
-    ? 'grid-cols-[minmax(140px,1fr)_5.5rem_5rem_4rem_5rem_5rem_5rem_3rem_1.5rem]'
-    : 'grid-cols-[minmax(140px,1fr)_5.5rem_5rem_5rem_5rem_3rem_1.5rem]'
+    ? 'grid-cols-[minmax(140px,1fr)_4rem_5rem_4rem_5rem_5rem_5rem_3rem_1.5rem]'
+    : 'grid-cols-[minmax(140px,1fr)_4rem_5rem_5rem_5rem_3rem_1.5rem]'
 
   return (
     <section className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100 px-4 py-2 dark:bg-slate-800">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 bg-slate-100 px-4 py-2 dark:bg-slate-800">
+        <div className="flex flex-wrap items-baseline gap-1">
           <input
             value={group.name}
             onChange={(e) => patchGroup({ name: e.target.value })}
             className="min-w-0 rounded border border-transparent bg-transparent text-sm font-bold uppercase tracking-wide outline-none hover:border-slate-300 focus:border-slate-400 dark:hover:border-slate-600"
           />
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(</span>
           <input
             value={group.account}
-            placeholder="Account (e.g. USAA – 3399)"
+            placeholder="Account, e.g. USAA – 3399"
             onChange={(e) => patchGroup({ account: e.target.value })}
-            className="w-48 rounded border border-transparent bg-transparent text-xs font-normal text-slate-500 outline-none hover:border-slate-300 focus:border-slate-400 dark:text-slate-400 dark:hover:border-slate-600"
+            className="w-40 rounded border border-transparent bg-transparent text-xs font-normal text-slate-500 outline-none hover:border-slate-300 focus:border-slate-400 dark:text-slate-400 dark:hover:border-slate-600"
           />
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">)</span>
         </div>
         <div className="flex items-center gap-3">
           {debt && group.items.length > 1 && (
@@ -89,7 +93,7 @@ export default function GroupCard({ group }) {
       <div className="overflow-x-auto">
         <div className={`grid ${colTemplate} gap-2 border-b border-slate-100 px-4 py-1 text-xs font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400`}>
           <span>Item</span>
-          <span>Due</span>
+          <span>Day</span>
           {debt && (
             <>
               <span className="text-right">Balance</span>
@@ -99,60 +103,70 @@ export default function GroupCard({ group }) {
           <span className="text-right">Planned</span>
           <span className="text-right">Spent</span>
           <span className="text-right">Remaining</span>
-          <span />
+          <span className="text-center">Paid</span>
           <span />
         </div>
 
         {group.items.length === 0 && <p className="px-4 py-3 text-sm text-slate-400">No items yet.</p>}
 
-        {group.items.map((item) => (
+        {group.items.map((it) => (
           <div
-            key={item.id}
+            key={it.id}
             className={`grid ${colTemplate} items-center gap-2 border-b border-slate-100 px-4 py-1.5 last:border-b-0 dark:border-slate-800`}
           >
             <input
-              value={item.name}
+              value={it.name}
               placeholder="Item name"
-              onChange={(e) => patchItem(item.id, { name: e.target.value })}
+              onChange={(e) => patchItem(it.id, { name: e.target.value })}
               className="min-w-0 rounded border border-transparent bg-transparent px-1 py-1 text-sm hover:border-slate-200 focus:border-slate-300 focus:outline-none dark:hover:border-slate-700"
             />
             <input
-              value={item.due}
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              value={it.due === '' || it.due == null ? '' : it.due}
               placeholder="—"
-              onChange={(e) => patchItem(item.id, { due: e.target.value })}
-              className="w-20 min-w-0 rounded border border-transparent bg-transparent px-1 py-1 text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none dark:hover:border-slate-700"
+              onChange={(e) => {
+                const v = e.target.value
+                if (v === '') return patchItem(it.id, { due: '' })
+                const n = Math.max(1, Math.min(31, Math.round(Number(v))))
+                patchItem(it.id, { due: n })
+              }}
+              className="w-14 min-w-0 rounded border border-transparent bg-transparent px-1 py-1 text-xs text-slate-500 hover:border-slate-200 focus:border-slate-300 focus:outline-none dark:hover:border-slate-700"
+              aria-label={`${it.name || 'item'} due day of month`}
             />
             {debt && (
               <>
-                <MoneyInput value={item.balance} onChange={(v) => patchItem(item.id, { balance: v })} />
+                <MoneyInput value={it.balance} onChange={(v) => patchItem(it.id, { balance: v })} />
                 <input
                   type="number"
                   step="0.01"
-                  value={item.apr || item.apr === 0 ? item.apr : ''}
-                  onChange={(e) => patchItem(item.id, { apr: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
-                  className="w-16 rounded border border-slate-300 bg-white px-2 py-1 text-right text-sm dark:border-slate-700 dark:bg-slate-900"
-                  aria-label={`${item.name || 'debt'} APR percent`}
+                  value={it.apr || it.apr === 0 ? it.apr : ''}
+                  onChange={(e) => patchItem(it.id, { apr: e.target.value === '' ? 0 : parseFloat(e.target.value) })}
+                  className="w-16 min-w-0 rounded border border-transparent bg-transparent px-1 py-1 text-right text-sm hover:border-slate-200 focus:border-slate-300 focus:outline-none dark:hover:border-slate-700"
+                  aria-label={`${it.name || 'debt'} APR percent`}
                 />
               </>
             )}
-            <MoneyInput value={item.planned} onChange={(v) => patchItem(item.id, { planned: v })} />
-            <MoneyInput value={item.spent} onChange={(v) => patchItem(item.id, { spent: v })} />
-            <span className={`text-right text-sm ${remaining(item) < 0 ? 'text-red-500' : 'text-slate-600 dark:text-slate-300'}`}>
-              {money(remaining(item))}
+            <MoneyInput value={it.planned} onChange={(v) => patchItem(it.id, { planned: v })} />
+            <MoneyInput value={it.spent} onChange={(v) => patchItem(it.id, { spent: v })} />
+            <span className={`text-right text-sm ${remaining(it) < 0 ? 'text-red-500' : 'text-slate-600 dark:text-slate-300'}`}>
+              {money(remaining(it))}
+            </span>
+            <span className="flex justify-center">
+              <input
+                type="checkbox"
+                checked={!!it.paid}
+                onChange={(e) => togglePaid(it, e.target.checked)}
+                aria-label={`Mark ${it.name || 'item'} as paid`}
+                className="h-4 w-4 accent-emerald-600"
+              />
             </span>
             <button
               type="button"
-              onClick={() => patchItem(item.id, { spent: item.planned })}
-              disabled={item.spent === item.planned}
-              title="Mark as paid (set spent = planned)"
-              className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-500 hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-30 dark:border-slate-700"
-            >
-              Paid
-            </button>
-            <button
-              type="button"
-              aria-label={`Remove ${item.name || 'item'}`}
-              onClick={() => confirmRemoveItem(item)}
+              aria-label={`Remove ${it.name || 'item'}`}
+              onClick={() => confirmRemoveItem(it)}
               className="text-slate-300 hover:text-red-500"
             >
               ×

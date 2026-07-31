@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId } from '../lib/storage'
 
@@ -12,7 +13,11 @@ function labelFor(key) {
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-function cloneForward(source) {
+function blankMonth(label) {
+  return { label, income: [], groups: [], transactions: [], accountNotes: {} }
+}
+
+function cloneForward(source, label) {
   const groups = source.groups.map((g) => ({
     id: newId(),
     name: g.name,
@@ -23,37 +28,41 @@ function cloneForward(source) {
       due: it.due,
       planned: it.planned,
       spent: 0,
+      paid: false,
       balance: it.balance ?? 0,
       apr: it.apr ?? 0,
     })),
   }))
   const income = source.income.map((s) => ({ id: newId(), name: s.name, planned: s.planned }))
-  return { income, groups }
+  return { label, income, groups, transactions: [], accountNotes: {} }
 }
 
 export default function MonthSwitcher() {
   const { doc, setDoc } = useBudget()
   const monthKeys = Object.keys(doc.months).sort()
+  const [pendingKey, setPendingKey] = useState(null) // new month key awaiting copy/blank choice
 
   const goTo = (key) => {
-    setDoc((prev) => {
-      if (prev.months[key]) return { ...prev, activeMonth: key }
+    if (doc.months[key]) {
+      setDoc((prev) => ({ ...prev, activeMonth: key }))
+      return
+    }
+    setPendingKey(key)
+  }
 
-      // Only fabricate data when moving to a new month *after* the latest one on record
-      // (copy-forward planned amounts, spent reset to 0). Jumping to an earlier,
-      // never-recorded month starts blank instead of cloning unrelated data into it.
+  const createMonth = (mode) => {
+    const key = pendingKey
+    setDoc((prev) => {
       const keys = Object.keys(prev.months).sort()
       const latest = keys[keys.length - 1]
-      const isForward = key > latest
-      const month = isForward ? { label: labelFor(key), ...cloneForward(prev.months[latest]) } : { label: labelFor(key), income: [], groups: [] }
-
-      return {
-        ...prev,
-        activeMonth: key,
-        months: { ...prev.months, [key]: month },
-      }
+      const month =
+        mode === 'copy' ? cloneForward(prev.months[latest], labelFor(key)) : blankMonth(labelFor(key))
+      return { ...prev, activeMonth: key, months: { ...prev.months, [key]: month } }
     })
+    setPendingKey(null)
   }
+
+  const latestKey = monthKeys[monthKeys.length - 1]
 
   return (
     <div className="flex items-center gap-2">
@@ -84,6 +93,41 @@ export default function MonthSwitcher() {
       >
         →
       </button>
+
+      {pendingKey && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingKey(null)}>
+          <div className="w-full max-w-sm rounded-lg bg-white p-4 shadow-xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold">{labelFor(pendingKey)} has no data yet</h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              Start it blank, or copy {doc.months[latestKey]?.label}'s categories and planned amounts forward (spent and
+              paid status reset to $0 / unpaid).
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingKey(null)}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => createMonth('blank')}
+                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                Start blank
+              </button>
+              <button
+                type="button"
+                onClick={() => createMonth('copy')}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Copy {doc.months[latestKey]?.label}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

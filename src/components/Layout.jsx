@@ -3,6 +3,7 @@ import MonthSwitcher from './MonthSwitcher'
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
+  { to: '/transactions', label: 'Transactions' },
   { to: '/savings-ideas', label: 'Savings Ideas' },
   { to: '/trends', label: 'Trends' },
   { to: '/settings', label: 'Settings' },

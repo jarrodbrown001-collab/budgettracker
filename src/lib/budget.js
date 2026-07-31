@@ -3,6 +3,8 @@ export const money = (n) =>
 
 export const remaining = (item) => (Number(item.planned) || 0) - (Number(item.spent) || 0)
 
+export const isDebtGroup = (name) => name.trim().toLowerCase() === 'debt'
+
 export function groupTotals(group) {
   const planned = group.items.reduce((s, it) => s + (Number(it.planned) || 0), 0)
   const spent = group.items.reduce((s, it) => s + (Number(it.spent) || 0), 0)
@@ -32,10 +34,12 @@ export function savingsPlanned(month) {
 }
 
 // Rolls category totals up by bank account, so it's clear how much needs to sit in
-// each account before its due dates hit.
+// each account before its due dates hit. Debt is excluded — its "account" field
+// describes a payoff methodology (Baby Step 2), not a real bank account.
 export function accountTotals(month) {
   const byAccount = new Map()
   for (const g of month.groups) {
+    if (isDebtGroup(g.name)) continue
     const key = g.account?.trim() || 'Unassigned'
     const t = groupTotals(g)
     const prev = byAccount.get(key) || { account: key, planned: 0, spent: 0, remaining: 0 }
