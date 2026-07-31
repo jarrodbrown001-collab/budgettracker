@@ -3,6 +3,7 @@ import { useBudget } from '../lib/BudgetContext'
 import { newId } from '../lib/storage'
 import { money } from '../lib/budget'
 import ConfirmDialog from '../components/ConfirmDialog'
+import MoneyInput from '../components/MoneyInput'
 
 function todayStr() {
   const d = new Date()
@@ -23,7 +24,7 @@ function bucketLabel(month, tx) {
 export default function TransactionsPage() {
   const { month, updateMonth } = useBudget()
   const [type, setType] = useState('expense')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(0)
   const [groupId, setGroupId] = useState('')
   const [itemId, setItemId] = useState('')
   const [note, setNote] = useState('')
@@ -39,7 +40,7 @@ export default function TransactionsPage() {
 
   const addTransaction = (e) => {
     e.preventDefault()
-    const amt = parseFloat(amount)
+    const amt = amount
     if (!amt || amt <= 0 || !groupId || !itemId) return
     const loggedAt = new Date(`${dateStr}T${timeStr}:00`).toISOString()
     const tx = { id: newId(), type, amount: amt, groupId, itemId, note, loggedAt }
@@ -52,7 +53,7 @@ export default function TransactionsPage() {
           : { ...g, items: g.items.map((it) => (it.id !== itemId ? it : { ...it, spent: (Number(it.spent) || 0) + amt })) },
       ),
     }))
-    setAmount('')
+    setAmount(0)
     setNote('')
     setDateStr(todayStr())
     setTimeStr(nowStr())
@@ -96,14 +97,10 @@ export default function TransactionsPage() {
 
           <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
             Amount
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              required
+            <MoneyInput
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+              onChange={setAmount}
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-right text-sm dark:border-slate-700 dark:bg-slate-900"
             />
           </label>
 
