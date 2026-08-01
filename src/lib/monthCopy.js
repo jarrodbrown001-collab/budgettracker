@@ -5,7 +5,7 @@ export function blankMonth(label) {
 }
 
 // Copies a month's category structure forward. Planned amounts carry over,
-// spent/paid reset for every item. For groups flagged `rollover` (sinking
+// spent/paid reset for every item. For items flagged `rollover` (sinking
 // funds / savings goals), whatever was left unspent this month (planned -
 // spent) is added to the item's running `balance` instead of being reset —
 // that's what makes the "saved so far" total accumulate month over month.
@@ -16,9 +16,8 @@ export function cloneMonthForward(source, label) {
     id: newId(),
     name: g.name,
     account: g.account,
-    rollover: !!g.rollover,
     items: g.items.map((it) => {
-      const carriedBalance = g.rollover
+      const carriedBalance = it.rollover
         ? (Number(it.balance) || 0) + (Number(it.planned) || 0) - (Number(it.spent) || 0)
         : (it.balance ?? 0)
       return {
@@ -30,6 +29,7 @@ export function cloneMonthForward(source, label) {
         paid: false,
         balance: carriedBalance,
         apr: it.apr ?? 0,
+        rollover: !!it.rollover,
       }
     }),
   }))

@@ -10,8 +10,8 @@ export default function GroupCard({ group }) {
   const totals = groupTotals(group)
   const [pendingRemove, setPendingRemove] = useState(null) // { type: 'item'|'group', id, label }
   const debt = isDebtGroup(group.name)
-  const rollover = !debt && !!group.rollover
-  const totalSaved = rollover ? group.items.reduce((s, it) => s + (Number(it.balance) || 0), 0) : 0
+  const hasRolloverItems = !debt && group.items.some((it) => it.rollover)
+  const totalSaved = group.items.reduce((s, it) => s + (it.rollover ? Number(it.balance) || 0 : 0), 0)
 
   const patchGroup = (patch) => {
     updateMonth((m) => ({
@@ -28,7 +28,7 @@ export default function GroupCard({ group }) {
     patchGroup({
       items: [
         ...group.items,
-        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0 },
+        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0, rollover: false },
       ],
     })
   }
@@ -47,6 +47,10 @@ export default function GroupCard({ group }) {
         return g
       }),
     }))
+  }
+
+  const setAllRollover = (value) => {
+    patchGroup({ items: group.items.map((it) => ({ ...it, rollover: value })) })
   }
 
   const sortByBalance = () => {
@@ -72,9 +76,7 @@ export default function GroupCard({ group }) {
 
   const colTemplate = debt
     ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_4rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
-    : rollover
-      ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
-      : 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
+    : 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_5rem_4rem_3rem_6rem_1.5rem]'
 
   return (
     <section className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -103,16 +105,14 @@ export default function GroupCard({ group }) {
               Sort by balance (smallest first)
             </button>
           )}
-          {!debt && (
-            <label className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-              <input
-                type="checkbox"
-                checked={rollover}
-                onChange={(e) => patchGroup({ rollover: e.target.checked })}
-                className="h-3.5 w-3.5 accent-emerald-600"
-              />
-              Rollover / sinking fund
-            </label>
+          {!debt && group.items.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setAllRollover(!hasRolloverItems)}
+              className="text-xs text-emerald-700 hover:underline dark:text-emerald-400"
+            >
+              {hasRolloverItems ? 'Clear rollover on all items' : 'Flag all items as rollover'}
+            </button>
           )}
           <button type="button" onClick={confirmRemoveGroup} className="text-xs text-slate-400 hover:text-red-500">
             Remove category
@@ -132,10 +132,11 @@ export default function GroupCard({ group }) {
               <span className="px-2 py-1 text-right">APR</span>
             </>
           )}
-          {rollover && <span className="px-2 py-1 text-right">Saved</span>}
+          {!debt && <span className="px-2 py-1 text-right">Saved</span>}
           <span className="px-2 py-1 text-right">Planned</span>
           <span className="px-2 py-1 text-right">Spent</span>
           <span className="px-2 py-1 text-right">Remaining</span>
+          {!debt && <span className="px-2 py-1 text-center">Rollover</span>}
           <span className="px-2 py-1 text-center">Paid</span>
           <span className="px-2 py-1">Move to</span>
           <span className="px-2 py-1" />
@@ -187,11 +188,11 @@ export default function GroupCard({ group }) {
                 />
               </>
             )}
-            {rollover && (
+            {!debt && (
               <MoneyInput
                 value={it.balance}
                 onChange={(v) => patchItem(it.id, { balance: v })}
-                className="min-w-0 bg-transparent px-2 py-1.5 text-right text-sm font-medium text-emerald-700 outline-none hover:bg-slate-50 focus:ring-1 focus:ring-inset focus:ring-slate-300 dark:text-emerald-400 dark:hover:bg-slate-800/50"
+                className={`min-w-0 bg-transparent px-2 py-1.5 text-right text-sm outline-none hover:bg-slate-50 focus:ring-1 focus:ring-inset focus:ring-slate-300 dark:hover:bg-slate-800/50 ${it.rollover ? 'font-medium text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}
               />
             )}
             <MoneyInput
@@ -209,6 +210,17 @@ export default function GroupCard({ group }) {
             >
               {money(remaining(it))}
             </span>
+            {!debt && (
+              <span className="flex items-center justify-center px-2 py-1.5">
+                <input
+                  type="checkbox"
+                  checked={!!it.rollover}
+                  onChange={(e) => patchItem(it.id, { rollover: e.target.checked })}
+                  aria-label={`${it.name || 'item'} rolls over month to month`}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+              </span>
+            )}
             <span className="flex items-center justify-center px-2 py-1.5">
               <input
                 type="checkbox"
@@ -254,7 +266,7 @@ export default function GroupCard({ group }) {
           + Add item
         </button>
         <div className="text-sm font-semibold">
-          {rollover && <span className="mr-3 text-emerald-700 dark:text-emerald-400">{money(totalSaved)} saved</span>}
+          {hasRolloverItems && <span className="mr-3 text-emerald-700 dark:text-emerald-400">{money(totalSaved)} saved</span>}
           Subtotal: {money(totals.planned)} planned · {money(totals.remaining)} remaining
         </div>
       </div>
