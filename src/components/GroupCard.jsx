@@ -6,7 +6,7 @@ import MoneyInput from './MoneyInput'
 import ConfirmDialog from './ConfirmDialog'
 
 export default function GroupCard({ group }) {
-  const { updateMonth } = useBudget()
+  const { month, updateMonth } = useBudget()
   const totals = groupTotals(group)
   const [pendingRemove, setPendingRemove] = useState(null) // { type: 'item'|'group', id, label }
   const debt = isDebtGroup(group.name)
@@ -37,6 +37,18 @@ export default function GroupCard({ group }) {
     patchItem(it.id, { paid, spent: paid ? it.planned : 0 })
   }
 
+  const moveItem = (item, targetGroupId) => {
+    if (!targetGroupId || targetGroupId === group.id) return
+    updateMonth((m) => ({
+      ...m,
+      groups: m.groups.map((g) => {
+        if (g.id === group.id) return { ...g, items: g.items.filter((it) => it.id !== item.id) }
+        if (g.id === targetGroupId) return { ...g, items: [...g.items, item] }
+        return g
+      }),
+    }))
+  }
+
   const sortByBalance = () => {
     patchGroup({ items: [...group.items].sort((a, b) => (a.balance || 0) - (b.balance || 0)) })
   }
@@ -59,10 +71,10 @@ export default function GroupCard({ group }) {
   }
 
   const colTemplate = debt
-    ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_4rem_5rem_5rem_5rem_3rem_1.5rem]'
+    ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_4rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
     : rollover
-      ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_5rem_3rem_1.5rem]'
-      : 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_3rem_1.5rem]'
+      ? 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
+      : 'grid-cols-[minmax(140px,1fr)_5rem_5rem_5rem_5rem_3rem_6rem_1.5rem]'
 
   return (
     <section className="mb-6 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -125,6 +137,7 @@ export default function GroupCard({ group }) {
           <span className="px-2 py-1 text-right">Spent</span>
           <span className="px-2 py-1 text-right">Remaining</span>
           <span className="px-2 py-1 text-center">Paid</span>
+          <span className="px-2 py-1">Move to</span>
           <span className="px-2 py-1" />
         </div>
 
@@ -204,6 +217,23 @@ export default function GroupCard({ group }) {
                 aria-label={`Mark ${it.name || 'item'} as paid`}
                 className="h-4 w-4 accent-emerald-600"
               />
+            </span>
+            <span className="flex items-center px-2 py-1.5">
+              <select
+                value=""
+                onChange={(e) => moveItem(it, e.target.value)}
+                aria-label={`Move ${it.name || 'item'} to a different category`}
+                className="w-full min-w-0 rounded border border-slate-200 bg-white px-1 py-1 text-xs text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-900"
+              >
+                <option value="">Move to…</option>
+                {month.groups
+                  .filter((g) => g.id !== group.id)
+                  .map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name || 'Untitled'}
+                    </option>
+                  ))}
+              </select>
             </span>
             <span className="flex items-center justify-center px-2 py-1.5">
               <button
