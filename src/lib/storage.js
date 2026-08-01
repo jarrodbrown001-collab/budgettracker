@@ -11,6 +11,7 @@ function defaultDoc() {
     months: {
       '2026-06': seedJune2026(),
     },
+    pendingTransactions: [],
   }
 }
 
@@ -24,6 +25,7 @@ export function load() {
   try {
     const doc = JSON.parse(raw)
     if (!doc.months || !doc.activeMonth) return defaultDoc()
+    if (!doc.pendingTransactions) doc.pendingTransactions = []
     return doc
   } catch {
     return defaultDoc()
@@ -53,6 +55,30 @@ export function importJSON(file) {
         if (!doc.months || !doc.activeMonth) throw new Error('Invalid backup file')
         save(doc)
         resolve(doc)
+      } catch (e) {
+        reject(e)
+      }
+    }
+    reader.onerror = reject
+    reader.readAsText(file)
+  })
+}
+
+// Reads a JSON file of parsed email transactions:
+// [{ id, type: 'expense'|'deposit', amount, date: 'YYYY-MM-DD', merchant, note }]
+export function readPendingTransactionsFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const items = JSON.parse(reader.result)
+        if (!Array.isArray(items)) throw new Error('Expected a JSON array of transactions')
+        for (const it of items) {
+          if (!it.id || !it.type || !it.amount || !it.date) {
+            throw new Error('Each transaction needs id, type, amount, and date')
+          }
+        }
+        resolve(items)
       } catch (e) {
         reject(e)
       }

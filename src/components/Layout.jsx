@@ -1,15 +1,20 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import MonthSwitcher from './MonthSwitcher'
+import { useBudget } from '../lib/BudgetContext'
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
   { to: '/transactions', label: 'Transactions' },
+  { to: '/transactions-to-track', label: 'To Track', badge: true },
   { to: '/savings-ideas', label: 'Savings Ideas' },
   { to: '/trends', label: 'Trends' },
   { to: '/settings', label: 'Settings' },
 ]
 
 export default function Layout() {
+  const { doc } = useBudget()
+  const pendingCount = doc.pendingTransactions?.length || 0
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -18,14 +23,14 @@ export default function Layout() {
             <h1 className="text-xl font-bold tracking-tight">BudgetTracker</h1>
             <MonthSwitcher />
           </div>
-          <nav className="mt-3 flex gap-1">
+          <nav className="mt-3 flex flex-wrap gap-1">
             {tabs.map((t) => (
               <NavLink
                 key={t.to}
                 to={t.to}
                 end={t.end}
                 className={({ isActive }) =>
-                  `rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  `flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-emerald-600 text-white'
                       : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -33,6 +38,11 @@ export default function Layout() {
                 }
               >
                 {t.label}
+                {t.badge && pendingCount > 0 && (
+                  <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white">
+                    {pendingCount}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
