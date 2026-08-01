@@ -105,6 +105,7 @@ export function seedJune2026() {
         id: id(),
         name: 'Digital Envelopes / Sinking Funds',
         account: 'USAA – 3399',
+        rollover: true,
         items: [
           item('Christmas', '', 150),
           item('Family Vacation', '', 5),
@@ -128,12 +129,14 @@ export function seedJune2026() {
         id: id(),
         name: 'To Emergency Fund',
         account: 'Ally – 8204',
+        rollover: true,
         items: [item('Emergency Fund', '', 500)],
       },
       {
         id: id(),
         name: 'To Ally Savings',
         account: 'Ally – 8196',
+        rollover: true,
         items: [
           item('Vehicle Sinking', '', 0),
           item('House Maintenance', '', 100),

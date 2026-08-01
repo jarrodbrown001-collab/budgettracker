@@ -12,6 +12,7 @@ function defaultDoc() {
       '2026-06': seedJune2026(),
     },
     pendingTransactions: [],
+    savingsNotes: [],
   }
 }
 
@@ -26,6 +27,7 @@ export function load() {
     const doc = JSON.parse(raw)
     if (!doc.months || !doc.activeMonth) return defaultDoc()
     if (!doc.pendingTransactions) doc.pendingTransactions = []
+    if (!doc.savingsNotes) doc.savingsNotes = []
     return doc
   } catch {
     return defaultDoc()

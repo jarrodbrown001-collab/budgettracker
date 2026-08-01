@@ -1,11 +1,37 @@
+import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
+import { newId } from '../lib/storage'
 import { computeIdeas } from '../lib/savingsIdeas'
 import { money, savingsPlanned, monthTotals } from '../lib/budget'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 export default function SavingsIdeasPage() {
-  const { month } = useBudget()
+  const { doc, setDoc, month } = useBudget()
   const { ideas, scenarios } = computeIdeas(month)
   const t = monthTotals(month)
+  const [draft, setDraft] = useState('')
+  const [pendingDelete, setPendingDelete] = useState(null)
+
+  const notes = [...(doc.savingsNotes || [])].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+
+  const addNote = (e) => {
+    e.preventDefault()
+    const text = draft.trim()
+    if (!text) return
+    setDoc((prev) => ({
+      ...prev,
+      savingsNotes: [...(prev.savingsNotes || []), { id: newId(), text, createdAt: new Date().toISOString() }],
+    }))
+    setDraft('')
+  }
+
+  const runDelete = () => {
+    setDoc((prev) => ({
+      ...prev,
+      savingsNotes: (prev.savingsNotes || []).filter((n) => n.id !== pendingDelete.id),
+    }))
+    setPendingDelete(null)
+  }
 
   return (
     <div className="space-y-6">
@@ -61,6 +87,60 @@ export default function SavingsIdeasPage() {
           ))}
         </div>
       </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          My Ideas
+        </h2>
+        <p className="mb-3 text-sm text-slate-600 dark:text-slate-300">
+          Jot down ways to save money as you think of them — not tied to any one month.
+        </p>
+        <form onSubmit={addNote} className="mb-3 flex gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="e.g. switch to a cheaper cell plan"
+            className="flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          />
+          <button type="submit" className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700">
+            Add
+          </button>
+        </form>
+        {notes.length === 0 ? (
+          <p className="text-sm text-slate-400">No ideas jotted down yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {notes.map((n) => (
+              <li
+                key={n.id}
+                className="flex items-start justify-between gap-2 rounded-md border border-slate-100 p-2 text-sm dark:border-slate-800"
+              >
+                <div>
+                  <p>{n.text}</p>
+                  <p className="text-xs text-slate-400">{new Date(n.createdAt).toLocaleDateString()}</p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Delete idea"
+                  onClick={() => setPendingDelete(n)}
+                  className="text-slate-300 hover:text-red-500"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete idea?"
+        message={pendingDelete ? `This permanently removes "${pendingDelete.text}". This can't be undone.` : ''}
+        confirmLabel="Delete"
+        onConfirm={runDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }

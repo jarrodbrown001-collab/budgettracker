@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
-import { newId } from '../lib/storage'
+import { blankMonth, cloneMonthForward } from '../lib/monthCopy'
 
 function shiftMonthKey(key, delta) {
   const [y, m] = key.split('-').map(Number)
@@ -11,30 +11,6 @@ function shiftMonthKey(key, delta) {
 function labelFor(key) {
   const [y, m] = key.split('-').map(Number)
   return new Date(y, m - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-}
-
-function blankMonth(label) {
-  return { label, income: [], groups: [], transactions: [], accountNotes: {} }
-}
-
-function cloneForward(source, label) {
-  const groups = source.groups.map((g) => ({
-    id: newId(),
-    name: g.name,
-    account: g.account,
-    items: g.items.map((it) => ({
-      id: newId(),
-      name: it.name,
-      due: it.due,
-      planned: it.planned,
-      spent: 0,
-      paid: false,
-      balance: it.balance ?? 0,
-      apr: it.apr ?? 0,
-    })),
-  }))
-  const income = source.income.map((s) => ({ id: newId(), name: s.name, planned: s.planned }))
-  return { label, income, groups, transactions: [], accountNotes: {} }
 }
 
 export default function MonthSwitcher() {
@@ -56,7 +32,7 @@ export default function MonthSwitcher() {
       const keys = Object.keys(prev.months).sort()
       const latest = keys[keys.length - 1]
       const month =
-        mode === 'copy' ? cloneForward(prev.months[latest], labelFor(key)) : blankMonth(labelFor(key))
+        mode === 'copy' ? cloneMonthForward(prev.months[latest], labelFor(key)) : blankMonth(labelFor(key))
       return { ...prev, activeMonth: key, months: { ...prev.months, [key]: month } }
     })
     setPendingKey(null)

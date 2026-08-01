@@ -14,12 +14,16 @@ import { monthTotals, groupTotals, money } from '../lib/budget'
 
 const BAR_COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#14b8a6', '#2dd4bf', '#0891b2', '#0e7490']
 
+// Real usage of the app started in August 2026 — June/July were setup and testing
+// data, so trend charts exclude them rather than treating them as real history.
+const TRENDS_START_MONTH = '2026-08'
+
 export default function TrendsPage() {
   const { doc, month } = useBudget()
-  // Only months up to and including the one currently being viewed — no projecting
-  // ahead into months that haven't happened yet from the user's perspective.
+  // Only months from the trends start month up to and including the one currently
+  // being viewed — no projecting ahead into months that haven't happened yet.
   const monthKeys = Object.keys(doc.months)
-    .filter((k) => k <= doc.activeMonth)
+    .filter((k) => k >= TRENDS_START_MONTH && k <= doc.activeMonth)
     .sort()
 
   const series = monthKeys.map((k) => {

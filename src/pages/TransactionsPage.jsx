@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId, readPendingTransactionsFile } from '../lib/storage'
 import { money } from '../lib/budget'
+import { cloneMonthForward } from '../lib/monthCopy'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MoneyInput from '../components/MoneyInput'
 
@@ -31,30 +32,15 @@ function labelFor(key) {
 
 // If the transaction's month doesn't exist yet, create it by copying the
 // most recent existing month's category structure (planned amounts carried
-// over, spent/paid reset) — same behavior as the month switcher's "copy" option.
+// over, spent/paid reset, rollover balances carried) — same behavior as the
+// month switcher's "copy" option.
 function ensureMonth(doc, key) {
   if (doc.months[key]) return doc
   const keys = Object.keys(doc.months).sort()
   const latest = doc.months[keys[keys.length - 1]]
-  const groups = latest.groups.map((g) => ({
-    id: newId(),
-    name: g.name,
-    account: g.account,
-    items: g.items.map((it) => ({
-      id: newId(),
-      name: it.name,
-      due: it.due,
-      planned: it.planned,
-      spent: 0,
-      paid: false,
-      balance: it.balance ?? 0,
-      apr: it.apr ?? 0,
-    })),
-  }))
-  const income = latest.income.map((s) => ({ id: newId(), name: s.name, planned: s.planned }))
   return {
     ...doc,
-    months: { ...doc.months, [key]: { label: labelFor(key), income, groups, transactions: [], accountNotes: {} } },
+    months: { ...doc.months, [key]: cloneMonthForward(latest, labelFor(key)) },
   }
 }
 
