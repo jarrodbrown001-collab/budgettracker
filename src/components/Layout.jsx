@@ -4,8 +4,7 @@ import { useBudget } from '../lib/BudgetContext'
 
 const tabs = [
   { to: '/', label: 'Budget', end: true },
-  { to: '/transactions', label: 'Transactions' },
-  { to: '/transactions-to-track', label: 'To Track', badge: true },
+  { to: '/transactions', label: 'Transactions', badge: true },
   { to: '/savings-ideas', label: 'Savings Ideas' },
   { to: '/trends', label: 'Trends' },
   { to: '/settings', label: 'Settings' },
