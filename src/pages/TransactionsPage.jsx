@@ -81,6 +81,20 @@ function PendingReview({ doc, setDoc }) {
     return (doc.months[key] || latestMonth)?.groups || []
   }
 
+  // Same pattern as the manual "Log a Transaction" form: item is searchable
+  // across every category without picking a category first, and picking one
+  // auto-fills the category.
+  const onItemQueryChange = (tx, groups, value) => {
+    const match = groups
+      .flatMap((g) => g.items.map((it) => ({ label: `${g.name} › ${it.name || 'Unnamed item'}`, groupName: g.name, itemName: it.name })))
+      .find((o) => o.label === value)
+    if (match) {
+      setSelection(tx.id, { itemQuery: value, groupName: match.groupName, itemName: match.itemName })
+    } else {
+      setSelection(tx.id, { itemQuery: value, itemName: '' })
+    }
+  }
+
   const assign = (tx) => {
     const sel = selections[tx.id]
     if (!sel?.groupName || !sel?.itemName) return
@@ -166,7 +180,6 @@ function PendingReview({ doc, setDoc }) {
           {pending.map((tx) => {
             const groups = groupsForDate(tx.date)
             const sel = selections[tx.id] || {}
-            const group = groups.find((g) => g.name === sel.groupName)
             const willCreateMonth = !doc.months[monthKeyOf(tx.date)]
             return (
               <div key={tx.id} className="border-b border-slate-100 p-4 last:border-b-0 dark:border-slate-800">
@@ -202,10 +215,28 @@ function PendingReview({ doc, setDoc }) {
                 )}
                 <div className="mt-2 flex flex-wrap items-end gap-2">
                   <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Item
+                    <input
+                      list={`pending-item-options-${tx.id}`}
+                      value={sel.itemQuery || ''}
+                      onChange={(e) => onItemQueryChange(tx, groups, e.target.value)}
+                      placeholder="Search any item…"
+                      autoComplete="off"
+                      className="mt-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    />
+                    <datalist id={`pending-item-options-${tx.id}`}>
+                      {(sel.groupName ? groups.filter((g) => g.name === sel.groupName) : groups).flatMap((g) =>
+                        g.items.map((it) => (
+                          <option key={`${g.name}:::${it.name}`} value={`${g.name} › ${it.name || 'Unnamed item'}`} />
+                        )),
+                      )}
+                    </datalist>
+                  </label>
+                  <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
                     Category
                     <select
                       value={sel.groupName || ''}
-                      onChange={(e) => setSelection(tx.id, { groupName: e.target.value, itemName: '' })}
+                      onChange={(e) => setSelection(tx.id, { groupName: e.target.value, itemName: '', itemQuery: '' })}
                       className="mt-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
                     >
                       <option value="">Select category…</option>
@@ -215,22 +246,7 @@ function PendingReview({ doc, setDoc }) {
                         </option>
                       ))}
                     </select>
-                  </label>
-                  <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Item
-                    <select
-                      disabled={!group}
-                      value={sel.itemName || ''}
-                      onChange={(e) => setSelection(tx.id, { itemName: e.target.value })}
-                      className="mt-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <option value="">Select item…</option>
-                      {group?.items.map((it) => (
-                        <option key={it.name} value={it.name}>
-                          {it.name || 'Unnamed item'}
-                        </option>
-                      ))}
-                    </select>
+                    <span className="mt-1 text-[11px] text-slate-400">Auto-fills from item</span>
                   </label>
                   <button
                     type="button"
