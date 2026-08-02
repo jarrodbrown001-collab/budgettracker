@@ -1,41 +1,66 @@
 import { useMemo, useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
-import { transactionsInRange, summarize, formatDateRange } from '../lib/reports'
-import { money } from '../lib/budget'
+import {
+  transactionsInRange,
+  transactionsBetween,
+  previousWindow,
+  summarize,
+  topPurchases,
+  formatDateRange,
+} from '../lib/reports'
+import { money, groupTotals } from '../lib/budget'
 
 const RANGE_OPTIONS = [3, 5, 7]
 const BAR_COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#0d9488', '#14b8a6', '#2dd4bf', '#0891b2']
 
-function buildTextSummary({ days, start, end, summary }) {
+function categoryBudgets(month, categories) {
+  return categories.map((c) => {
+    const group = month.groups.find((g) => g.name === c.name)
+    const planned = group ? groupTotals(group).planned : null
+    const pct = planned > 0 ? (c.amount / planned) * 100 : null
+    return { ...c, planned, pct, overBudget: pct != null && pct >= 100 }
+  })
+}
+
+function buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, categoriesWithBudget }) {
   const lines = []
   lines.push(`Spending Summary — Last ${days} Days (${formatDateRange(start, end)})`)
   lines.push('')
   lines.push(`Total spent: ${money(summary.totalSpent)}`)
   if (summary.totalDeposited > 0) lines.push(`Total deposited: ${money(summary.totalDeposited)}`)
+  lines.push(`Vs. previous ${days} days: ${delta.amount >= 0 ? '+' : ''}${money(delta.amount)} (${delta.pct == null ? 'n/a' : `${delta.pct >= 0 ? '+' : ''}${delta.pct.toFixed(0)}%`})`)
+  lines.push(`Averaging ${money(avgPerDay)}/day → projects to ~${money(projected)} for a full month at this pace`)
   lines.push('')
-  if (summary.categories.length > 0) {
+  if (categoriesWithBudget.length > 0) {
     lines.push('By category:')
-    for (const c of summary.categories) {
-      lines.push(`- ${c.name}: ${money(c.amount)}`)
+    for (const c of categoriesWithBudget) {
+      const pctStr = c.pct != null ? ` (${c.pct.toFixed(0)}% of ${money(c.planned)} budget${c.overBudget ? ' — OVER' : ''})` : ''
+      lines.push(`- ${c.name}: ${money(c.amount)}${pctStr}`)
     }
   } else {
     lines.push('No spending logged in this period.')
   }
+  if (top.length > 0) {
+    lines.push('')
+    lines.push('Biggest purchases:')
+    for (const t of top) {
+      lines.push(`- ${money(t.amount)} — ${t.itemName || t.note || t.categoryName} (${t.date.toLocaleDateString()})`)
+    }
+  }
   return lines.join('\n')
 }
 
-function drawImage({ days, start, end, summary }) {
+function drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget }) {
   const rowHeight = 26
   const width = 640
-  const height = 200 + summary.categories.length * rowHeight
+  const height = 260 + categoriesWithBudget.length * rowHeight
   const canvas = document.createElement('canvas')
-  const scale = 2 // sharper export
+  const scale = 2
   canvas.width = width * scale
   canvas.height = height * scale
   const ctx = canvas.getContext('2d')
   ctx.scale(scale, scale)
 
-  // Background
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, width, height)
   ctx.strokeStyle = '#e2e8f0'
@@ -60,13 +85,15 @@ function drawImage({ days, start, end, summary }) {
   ctx.font = '13px Arial, sans-serif'
   ctx.fillText('total spent', 24, y + 18)
 
-  if (summary.totalDeposited > 0) {
-    ctx.fillStyle = '#0f172a'
-    ctx.font = '14px Arial, sans-serif'
-    ctx.textAlign = 'right'
-    ctx.fillText(`${money(summary.totalDeposited)} deposited`, width - 24, y - 8)
-    ctx.textAlign = 'left'
-  }
+  ctx.textAlign = 'right'
+  ctx.fillStyle = delta.amount > 0 ? '#dc2626' : '#059669'
+  ctx.font = 'bold 14px Arial, sans-serif'
+  const deltaStr = `${delta.amount >= 0 ? '+' : ''}${money(delta.amount)} vs prior ${days}d${delta.pct != null ? ` (${delta.pct >= 0 ? '+' : ''}${delta.pct.toFixed(0)}%)` : ''}`
+  ctx.fillText(deltaStr, width - 24, y - 8)
+  ctx.fillStyle = '#64748b'
+  ctx.font = '12px Arial, sans-serif'
+  ctx.fillText(`${money(avgPerDay)}/day → ~${money(projected)}/mo pace`, width - 24, y + 12)
+  ctx.textAlign = 'left'
 
   y += 40
   ctx.strokeStyle = '#e2e8f0'
@@ -81,16 +108,16 @@ function drawImage({ days, start, end, summary }) {
   ctx.fillText('BY CATEGORY', 24, y)
   y += 12
 
-  const maxAmount = Math.max(1, ...summary.categories.map((c) => c.amount))
-  summary.categories.forEach((c, i) => {
+  const maxAmount = Math.max(1, ...categoriesWithBudget.map((c) => c.amount))
+  categoriesWithBudget.forEach((c, i) => {
     y += rowHeight
     const barMaxWidth = width - 220
     const barWidth = (c.amount / maxAmount) * barMaxWidth
-    ctx.fillStyle = BAR_COLORS[i % BAR_COLORS.length]
+    ctx.fillStyle = c.overBudget ? '#dc2626' : BAR_COLORS[i % BAR_COLORS.length]
     ctx.fillRect(24, y - 12, Math.max(2, barWidth), 10)
     ctx.fillStyle = '#334155'
     ctx.font = '13px Arial, sans-serif'
-    ctx.fillText(c.name, 24, y + 12)
+    ctx.fillText(c.name + (c.pct != null ? ` — ${c.pct.toFixed(0)}%${c.overBudget ? ' OVER' : ''}` : ''), 24, y + 12)
     ctx.textAlign = 'right'
     ctx.fillStyle = '#0f172a'
     ctx.font = 'bold 13px Arial, sans-serif'
@@ -98,7 +125,7 @@ function drawImage({ days, start, end, summary }) {
     ctx.textAlign = 'left'
   })
 
-  if (summary.categories.length === 0) {
+  if (categoriesWithBudget.length === 0) {
     y += rowHeight
     ctx.fillStyle = '#94a3b8'
     ctx.font = 'italic 13px Arial, sans-serif'
@@ -113,16 +140,33 @@ function drawImage({ days, start, end, summary }) {
 }
 
 export default function ReportsPage() {
-  const { doc } = useBudget()
+  const { doc, month } = useBudget()
   const [days, setDays] = useState(7)
   const [copyStatus, setCopyStatus] = useState('')
 
   const { transactions, start, end } = useMemo(() => transactionsInRange(doc, days), [doc, days])
   const summary = useMemo(() => summarize(transactions), [transactions])
+  const categoriesWithBudget = useMemo(() => categoryBudgets(month, summary.categories), [month, summary.categories])
   const maxCategory = Math.max(1, ...summary.categories.map((c) => c.amount))
 
+  const prev = useMemo(() => previousWindow(start, days), [start, days])
+  const prevTransactions = useMemo(() => transactionsBetween(doc, prev.start, prev.end), [doc, prev])
+  const prevSummary = useMemo(() => summarize(prevTransactions), [prevTransactions])
+  const delta = useMemo(() => {
+    const amount = summary.totalSpent - prevSummary.totalSpent
+    const pct = prevSummary.totalSpent > 0 ? (amount / prevSummary.totalSpent) * 100 : null
+    return { amount, pct }
+  }, [summary.totalSpent, prevSummary.totalSpent])
+
+  const avgPerDay = summary.totalSpent / days
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const projected = avgPerDay * daysInMonth
+
+  const top = useMemo(() => topPurchases(transactions, 5), [transactions])
+
   const copyAsText = async () => {
-    const text = buildTextSummary({ days, start, end, summary })
+    const text = buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, categoriesWithBudget })
     try {
       await navigator.clipboard.writeText(text)
       setCopyStatus('Copied to clipboard!')
@@ -133,7 +177,7 @@ export default function ReportsPage() {
   }
 
   const downloadImage = () => {
-    const canvas = drawImage({ days, start, end, summary })
+    const canvas = drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget })
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -180,34 +224,61 @@ export default function ReportsPage() {
             Last {days} days — {formatDateRange(start, end)}
           </p>
 
-          <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
+          <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-3xl font-bold text-emerald-600">{money(summary.totalSpent)}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">total spent</p>
             </div>
-            {summary.totalDeposited > 0 && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">{money(summary.totalDeposited)} deposited</p>
-            )}
+            <div className="text-right">
+              <p className={`text-sm font-semibold ${delta.amount > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                {delta.amount >= 0 ? '+' : ''}
+                {money(delta.amount)} vs prior {days}d
+                {delta.pct != null && ` (${delta.pct >= 0 ? '+' : ''}${delta.pct.toFixed(0)}%)`}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {money(avgPerDay)}/day → ~{money(projected)}/mo pace
+              </p>
+              {summary.totalDeposited > 0 && (
+                <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{money(summary.totalDeposited)} deposited</p>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
             <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               By Category
             </h4>
-            {summary.categories.length === 0 ? (
+            {categoriesWithBudget.length === 0 ? (
               <p className="text-sm italic text-slate-400">No spending logged in this period.</p>
             ) : (
               <div className="space-y-2">
-                {summary.categories.map((c, i) => (
+                {categoriesWithBudget.map((c, i) => (
                   <div key={c.name}>
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700 dark:text-slate-200">{c.name}</span>
-                      <span className="font-semibold">{money(c.amount)}</span>
+                      <span className="text-slate-700 dark:text-slate-200">
+                        {c.name}
+                        {c.overBudget && (
+                          <span className="ml-1.5 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950 dark:text-red-300">
+                            OVER BUDGET
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-semibold">
+                        {money(c.amount)}
+                        {c.pct != null && (
+                          <span className="ml-1 text-xs font-normal text-slate-400">
+                            ({c.pct.toFixed(0)}% of {money(c.planned)})
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
                         className="h-full rounded-full"
-                        style={{ width: `${(c.amount / maxCategory) * 100}%`, backgroundColor: BAR_COLORS[i % BAR_COLORS.length] }}
+                        style={{
+                          width: `${(c.amount / maxCategory) * 100}%`,
+                          backgroundColor: c.overBudget ? '#dc2626' : BAR_COLORS[i % BAR_COLORS.length],
+                        }}
                       />
                     </div>
                   </div>
@@ -215,6 +286,25 @@ export default function ReportsPage() {
               </div>
             )}
           </div>
+
+          {top.length > 0 && (
+            <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Biggest Purchases
+              </h4>
+              <ul className="space-y-1 text-sm">
+                {top.map((t) => (
+                  <li key={t.id} className="flex items-center justify-between">
+                    <span className="text-slate-700 dark:text-slate-200">
+                      {t.itemName || t.note || t.categoryName}{' '}
+                      <span className="text-xs text-slate-400">({t.date.toLocaleDateString()})</span>
+                    </span>
+                    <span className="font-semibold">{money(t.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <p className="mt-4 text-[11px] text-slate-400">
             Generated {new Date().toLocaleString()} · BudgetTracker

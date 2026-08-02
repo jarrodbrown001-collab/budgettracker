@@ -1,13 +1,7 @@
-// Gathers logged transactions from the last `days` calendar days (inclusive of
-// today), scanning every month in the doc since the window can cross a month
-// boundary (e.g. "last 7 days" from Aug 2 reaches back into July).
-export function transactionsInRange(doc, days) {
-  const end = new Date()
-  end.setHours(23, 59, 59, 999)
-  const start = new Date()
-  start.setDate(start.getDate() - (days - 1))
-  start.setHours(0, 0, 0, 0)
-
+// Gathers logged transactions between two dates (inclusive), scanning every
+// month in the doc since a window can cross a month boundary (e.g. "last 7
+// days" from Aug 2 reaches back into July).
+export function transactionsBetween(doc, start, end) {
   const results = []
   for (const key of Object.keys(doc.months)) {
     const month = doc.months[key]
@@ -26,7 +20,34 @@ export function transactionsInRange(doc, days) {
     }
   }
   results.sort((a, b) => b.date - a.date)
-  return { transactions: results, start, end }
+  return results
+}
+
+// The last `days` calendar days, inclusive of today.
+export function currentWindow(days) {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  const start = new Date()
+  start.setDate(start.getDate() - (days - 1))
+  start.setHours(0, 0, 0, 0)
+  return { start, end }
+}
+
+// The `days`-long window immediately preceding a given window, for
+// period-over-period comparison.
+export function previousWindow(start, days) {
+  const end = new Date(start)
+  end.setDate(end.getDate() - 1)
+  end.setHours(23, 59, 59, 999)
+  const prevStart = new Date(end)
+  prevStart.setDate(prevStart.getDate() - (days - 1))
+  prevStart.setHours(0, 0, 0, 0)
+  return { start: prevStart, end }
+}
+
+export function transactionsInRange(doc, days) {
+  const { start, end } = currentWindow(days)
+  return { transactions: transactionsBetween(doc, start, end), start, end }
 }
 
 export function summarize(transactions) {
@@ -44,6 +65,13 @@ export function summarize(transactions) {
     .sort((a, b) => b.amount - a.amount)
 
   return { totalSpent, totalDeposited, categories, count: transactions.length }
+}
+
+export function topPurchases(transactions, n = 5) {
+  return [...transactions]
+    .filter((t) => t.type === 'expense')
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, n)
 }
 
 export function formatDateRange(start, end) {
