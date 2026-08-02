@@ -1,5 +1,6 @@
 import { useBudget } from '../lib/BudgetContext'
 import { money, remaining } from '../lib/budget'
+import { applyPaidToggle } from '../lib/paidTransaction'
 import MoneyInput from './MoneyInput'
 import SpendProgress from './SpendProgress'
 
@@ -20,7 +21,7 @@ export default function FavoritesSection() {
   }
 
   const togglePaid = (groupId, it, paid) => {
-    patchItem(groupId, it.id, { paid, spent: paid ? it.planned : 0 })
+    updateMonth((m) => applyPaidToggle(m, groupId, it.id, paid))
   }
 
   return (

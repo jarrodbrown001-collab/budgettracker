@@ -345,7 +345,16 @@ export default function TransactionsPage() {
           ? g
           : {
               ...g,
-              items: g.items.map((it) => (it.id !== tx.itemId ? it : { ...it, spent: (Number(it.spent) || 0) - tx.amount })),
+              items: g.items.map((it) =>
+                it.id !== tx.itemId
+                  ? it
+                  : {
+                      ...it,
+                      spent: (Number(it.spent) || 0) - tx.amount,
+                      // Deleting the transaction that "Paid" created un-pays the item too.
+                      ...(it.paidTransactionId === tx.id ? { paid: false, paidTransactionId: null } : {}),
+                    },
+              ),
             },
       ),
     }))

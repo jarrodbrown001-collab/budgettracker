@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId } from '../lib/storage'
 import { groupTotals, money, remaining, isDebtGroup } from '../lib/budget'
+import { applyPaidToggle } from '../lib/paidTransaction'
 import MoneyInput from './MoneyInput'
 import ConfirmDialog from './ConfirmDialog'
 import SpendProgress from './SpendProgress'
@@ -30,13 +31,13 @@ export default function GroupCard({ group }) {
     patchGroup({
       items: [
         ...group.items,
-        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0, rollover: false, favorite: false },
+        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, paidTransactionId: null, balance: 0, apr: 0, rollover: false, favorite: false },
       ],
     })
   }
 
   const togglePaid = (it, paid) => {
-    patchItem(it.id, { paid, spent: paid ? it.planned : 0 })
+    updateMonth((m) => applyPaidToggle(m, group.id, it.id, paid))
   }
 
   const moveItem = (item, targetGroupId) => {

@@ -10,6 +10,7 @@ const item = (name, due, planned, rollover = false) => ({
   planned,
   spent: 0,
   paid: false,
+  paidTransactionId: null,
   balance: 0,
   apr: 0,
   rollover,

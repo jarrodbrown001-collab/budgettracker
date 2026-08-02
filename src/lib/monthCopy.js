@@ -27,6 +27,7 @@ export function cloneMonthForward(source, label) {
         planned: it.planned,
         spent: 0,
         paid: false,
+        paidTransactionId: null,
         balance: carriedBalance,
         apr: it.apr ?? 0,
         rollover: !!it.rollover,
