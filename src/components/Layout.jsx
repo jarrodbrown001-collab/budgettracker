@@ -7,6 +7,7 @@ const tabs = [
   { to: '/transactions', label: 'Transactions', badge: true },
   { to: '/savings-ideas', label: 'Savings Ideas' },
   { to: '/trends', label: 'Trends' },
+  { to: '/reports', label: 'Reports' },
   { to: '/settings', label: 'Settings' },
 ]
 

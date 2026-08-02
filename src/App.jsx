@@ -5,6 +5,7 @@ import BudgetPage from './pages/BudgetPage'
 import TransactionsPage from './pages/TransactionsPage'
 import SavingsIdeasPage from './pages/SavingsIdeasPage'
 import TrendsPage from './pages/TrendsPage'
+import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
             <Route path="transactions" element={<TransactionsPage />} />
             <Route path="savings-ideas" element={<SavingsIdeasPage />} />
             <Route path="trends" element={<TrendsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
