@@ -26,6 +26,7 @@ export default function BudgetPage() {
       </div>
 
       <SummaryBar />
+      <AccountRollup />
       <FavoritesSection />
       <IncomeSection />
 
