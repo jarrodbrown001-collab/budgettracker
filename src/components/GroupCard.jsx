@@ -4,10 +4,12 @@ import { newId } from '../lib/storage'
 import { groupTotals, money, remaining, isDebtGroup } from '../lib/budget'
 import MoneyInput from './MoneyInput'
 import ConfirmDialog from './ConfirmDialog'
+import SpendProgress from './SpendProgress'
 
 export default function GroupCard({ group }) {
   const { month, updateMonth } = useBudget()
   const totals = groupTotals(group)
+  const sortedItems = [...group.items].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0))
   const [pendingRemove, setPendingRemove] = useState(null) // { type: 'item'|'group', id, label }
   const debt = isDebtGroup(group.name)
   const hasRolloverItems = !debt && group.items.some((it) => it.rollover)
@@ -28,7 +30,7 @@ export default function GroupCard({ group }) {
     patchGroup({
       items: [
         ...group.items,
-        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0, rollover: false },
+        { id: newId(), name: '', due: '', planned: 0, spent: 0, paid: false, balance: 0, apr: 0, rollover: false, favorite: false },
       ],
     })
   }
@@ -111,7 +113,7 @@ export default function GroupCard({ group }) {
               onClick={() => setAllRollover(!hasRolloverItems)}
               className="text-xs text-emerald-700 hover:underline dark:text-emerald-400"
             >
-              {hasRolloverItems ? 'Clear rollover on all items' : 'Flag all items as rollover'}
+              {hasRolloverItems ? 'Clear fund on all items' : 'Flag all items as fund'}
             </button>
           )}
           <button type="button" onClick={confirmRemoveGroup} className="text-xs text-slate-400 hover:text-red-500">
@@ -136,7 +138,7 @@ export default function GroupCard({ group }) {
           <span className="px-2 py-1 text-right">Planned</span>
           <span className="px-2 py-1 text-right">Spent</span>
           <span className="px-2 py-1 text-right">Remaining</span>
-          {!debt && <span className="px-2 py-1 text-center">Rollover</span>}
+          {!debt && <span className="px-2 py-1 text-center">Fund</span>}
           <span className="px-2 py-1 text-center">Paid</span>
           <span className="px-2 py-1">Move to</span>
           <span className="px-2 py-1" />
@@ -144,17 +146,30 @@ export default function GroupCard({ group }) {
 
         {group.items.length === 0 && <p className="px-4 py-3 text-sm text-slate-400">No items yet.</p>}
 
-        {group.items.map((it) => (
+        {sortedItems.map((it) => (
           <div
             key={it.id}
             className={`grid ${colTemplate} items-stretch divide-x divide-slate-100 border-b border-slate-100 last:border-b-0 dark:divide-slate-800 dark:border-slate-800`}
           >
-            <input
-              value={it.name}
-              placeholder="Item name"
-              onChange={(e) => patchItem(it.id, { name: e.target.value })}
-              className="min-w-0 bg-transparent px-2 py-1.5 text-sm outline-none hover:bg-slate-50 focus:ring-1 focus:ring-inset focus:ring-slate-300 dark:hover:bg-slate-800/50"
-            />
+            <div className="flex min-w-0 flex-col justify-center px-2 py-1">
+              <div className="flex min-w-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => patchItem(it.id, { favorite: !it.favorite })}
+                  aria-label={it.favorite ? `Unfavorite ${it.name || 'item'}` : `Favorite ${it.name || 'item'}`}
+                  className={`shrink-0 leading-none ${it.favorite ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400 dark:text-slate-600'}`}
+                >
+                  {it.favorite ? '★' : '☆'}
+                </button>
+                <input
+                  value={it.name}
+                  placeholder="Item name"
+                  onChange={(e) => patchItem(it.id, { name: e.target.value })}
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none focus:ring-1 focus:ring-inset focus:ring-slate-300"
+                />
+              </div>
+              <SpendProgress planned={it.planned} spent={it.spent} />
+            </div>
             <input
               type="number"
               min="1"
@@ -216,7 +231,7 @@ export default function GroupCard({ group }) {
                   type="checkbox"
                   checked={!!it.rollover}
                   onChange={(e) => patchItem(it.id, { rollover: e.target.checked })}
-                  aria-label={`${it.name || 'item'} rolls over month to month`}
+                  aria-label={`${it.name || 'item'} is a fund that rolls over month to month`}
                   className="h-4 w-4 accent-emerald-600"
                 />
               </span>

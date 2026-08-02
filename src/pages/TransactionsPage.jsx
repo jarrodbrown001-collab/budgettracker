@@ -265,6 +265,7 @@ export default function TransactionsPage() {
   const [amount, setAmount] = useState(0)
   const [groupId, setGroupId] = useState('')
   const [itemId, setItemId] = useState('')
+  const [itemQuery, setItemQuery] = useState('')
   const [note, setNote] = useState('')
   const [dateStr, setDateStr] = useState(todayStr())
   const [timeStr, setTimeStr] = useState(nowStr())
@@ -272,6 +273,24 @@ export default function TransactionsPage() {
 
   const group = month.groups.find((g) => g.id === groupId)
   const transactions = [...(month.transactions || [])].sort((a, b) => (a.loggedAt < b.loggedAt ? 1 : -1))
+
+  // Every item across every category, searchable regardless of whether a
+  // category has been picked yet — picking one auto-fills the category.
+  const allItemOptions = month.groups.flatMap((g) =>
+    g.items.map((it) => ({ key: `${g.id}:::${it.id}`, label: `${g.name} › ${it.name || 'Unnamed item'}`, groupId: g.id, itemId: it.id })),
+  )
+  const itemOptionsForSearch = groupId ? allItemOptions.filter((o) => o.groupId === groupId) : allItemOptions
+
+  const onItemQueryChange = (value) => {
+    setItemQuery(value)
+    const match = allItemOptions.find((o) => o.label === value)
+    if (match) {
+      setGroupId(match.groupId)
+      setItemId(match.itemId)
+    } else {
+      setItemId('')
+    }
+  }
 
   const totalExpenses = (month.transactions || []).filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const totalDeposits = (month.transactions || []).filter((t) => t.type === 'deposit').reduce((s, t) => s + t.amount, 0)
@@ -293,6 +312,9 @@ export default function TransactionsPage() {
     }))
     setAmount(0)
     setNote('')
+    setItemQuery('')
+    setGroupId('')
+    setItemId('')
     setDateStr(todayStr())
     setTimeStr(nowStr())
   }
@@ -345,6 +367,24 @@ export default function TransactionsPage() {
           </label>
 
           <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
+            Item
+            <input
+              list="tx-item-options"
+              value={itemQuery}
+              onChange={(e) => onItemQueryChange(e.target.value)}
+              placeholder="Search any item…"
+              autoComplete="off"
+              className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+            />
+            <datalist id="tx-item-options">
+              {itemOptionsForSearch.map((o) => (
+                <option key={o.key} value={o.label} />
+              ))}
+            </datalist>
+            {!itemId && itemQuery && <span className="mt-1 text-xs text-amber-600 dark:text-amber-400">No exact match yet</span>}
+          </label>
+
+          <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
             Category / bucket
             <select
               required
@@ -352,6 +392,7 @@ export default function TransactionsPage() {
               onChange={(e) => {
                 setGroupId(e.target.value)
                 setItemId('')
+                setItemQuery('')
               }}
               className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
             >
@@ -362,24 +403,7 @@ export default function TransactionsPage() {
                 </option>
               ))}
             </select>
-          </label>
-
-          <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-            Item
-            <select
-              required
-              disabled={!group}
-              value={itemId}
-              onChange={(e) => setItemId(e.target.value)}
-              className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
-            >
-              <option value="">Select item…</option>
-              {group?.items.map((it) => (
-                <option key={it.id} value={it.id}>
-                  {it.name || 'Unnamed item'}
-                </option>
-              ))}
-            </select>
+            <span className="mt-1 text-xs text-slate-400">Auto-fills when you pick an item above</span>
           </label>
 
           <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">

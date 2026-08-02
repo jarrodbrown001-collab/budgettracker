@@ -30,6 +30,7 @@ export function cloneMonthForward(source, label) {
         balance: carriedBalance,
         apr: it.apr ?? 0,
         rollover: !!it.rollover,
+        favorite: !!it.favorite,
       }
     }),
   }))

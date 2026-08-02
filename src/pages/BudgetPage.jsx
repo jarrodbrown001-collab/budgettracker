@@ -4,6 +4,7 @@ import IncomeSection from '../components/IncomeSection'
 import GroupCard from '../components/GroupCard'
 import SummaryBar from '../components/SummaryBar'
 import AccountRollup from '../components/AccountRollup'
+import FavoritesSection from '../components/FavoritesSection'
 
 export default function BudgetPage() {
   const { month, updateMonth } = useBudget()
@@ -24,6 +25,8 @@ export default function BudgetPage() {
         </p>
       </div>
 
+      <SummaryBar />
+      <FavoritesSection />
       <IncomeSection />
 
       {month.groups.map((g) => (

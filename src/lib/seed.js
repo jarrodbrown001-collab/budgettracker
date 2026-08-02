@@ -13,6 +13,7 @@ const item = (name, due, planned, rollover = false) => ({
   balance: 0,
   apr: 0,
   rollover,
+  favorite: false,
 })
 
 export function seedJune2026() {
