@@ -2,6 +2,28 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { useBudget } from '../lib/BudgetContext'
 import { groupTotals, money } from '../lib/budget'
 
+const SERIES = [
+  { key: 'Planned', color: '#3b82f6' },
+  { key: 'Spent', color: '#eab308' },
+  { key: 'Remaining', color: '#92400e' },
+]
+
+// Recharts' <Legend> silently replaces an explicit payload prop with its own
+// auto-generated one (alphabetized, in this version) when nested in a chart —
+// rendering our own content is the only reliable way to control the order.
+function OrderedLegend() {
+  return (
+    <ul className="flex flex-wrap justify-center gap-4 pt-2 text-sm">
+      {SERIES.map((s) => (
+        <li key={s.key} className="flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
+          {s.key}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function TrendsPage() {
   const { month } = useBudget()
 
@@ -34,10 +56,10 @@ export default function TrendsPage() {
                 <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => money(v)} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={200} />
                 <Tooltip formatter={(v) => money(v)} />
-                <Legend />
-                <Bar dataKey="Planned" fill="#f59e0b" isAnimationActive={false} />
-                <Bar dataKey="Spent" fill="#ef4444" isAnimationActive={false} />
-                <Bar dataKey="Remaining" fill="#059669" isAnimationActive={false} />
+                <Legend content={<OrderedLegend />} />
+                {SERIES.map((s) => (
+                  <Bar key={s.key} dataKey={s.key} fill={s.color} isAnimationActive={false} />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
