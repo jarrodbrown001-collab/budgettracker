@@ -3,6 +3,7 @@ import { useBudget } from '../lib/BudgetContext'
 import { newId, readPendingTransactionsFile } from '../lib/storage'
 import { money } from '../lib/budget'
 import { cloneMonthForward } from '../lib/monthCopy'
+import { findExistingMatch } from '../lib/transactionDedupe'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MoneyInput from '../components/MoneyInput'
 
@@ -54,17 +55,46 @@ function PendingReview({ doc, setDoc }) {
   const monthKeys = Object.keys(doc.months).sort()
   const latestMonth = doc.months[monthKeys[monthKeys.length - 1]]
 
+  // A transaction already on file — either still awaiting review or already
+  // assigned into a month's ledger — is skipped instead of re-added, even if
+  // this import batch generated a different id for it.
+  const isDuplicate = (candidate, existingPending) => {
+    if (existingPending.some((p) => p.id === candidate.id)) return true
+    if (
+      existingPending.some(
+        (p) =>
+          Math.abs((Number(p.amount) || 0) - (Number(candidate.amount) || 0)) < 0.005 &&
+          p.date === candidate.date &&
+          (() => {
+            const a = (p.merchant || p.note || '').trim().toLowerCase()
+            const b = (candidate.merchant || candidate.note || '').trim().toLowerCase()
+            return !a || !b || a === b
+          })(),
+      )
+    )
+      return true
+    return !!findExistingMatch(doc, candidate)
+  }
+
   const onImport = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     try {
       const items = await readPendingTransactionsFile(file)
-      setDoc((prev) => {
-        const existingIds = new Set((prev.pendingTransactions || []).map((p) => p.id))
-        const fresh = items.filter((it) => !existingIds.has(it.id))
-        return { ...prev, pendingTransactions: [...(prev.pendingTransactions || []), ...fresh] }
-      })
-      setStatus(`Imported ${items.length} transaction(s) to review.`)
+      const existingPending = doc.pendingTransactions || []
+      const fresh = []
+      let dupCount = 0
+      for (const it of items) {
+        if (isDuplicate(it, existingPending)) {
+          dupCount++
+        } else {
+          fresh.push(it)
+        }
+      }
+      setDoc((prev) => ({ ...prev, pendingTransactions: [...(prev.pendingTransactions || []), ...fresh] }))
+      setStatus(
+        `Imported ${fresh.length} new transaction(s) to review${dupCount ? ` — skipped ${dupCount} already on file.` : '.'}`,
+      )
     } catch (err) {
       setStatus(`Import failed: ${err.message}`)
     } finally {
