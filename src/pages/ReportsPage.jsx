@@ -22,7 +22,17 @@ function categoryBudgets(month, categories) {
   })
 }
 
-function buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, categoriesWithBudget }) {
+function describeTx(t) {
+  const place = t.itemName ? `${t.categoryName} › ${t.itemName}` : t.categoryName
+  const note = t.note && t.note !== 'Marked paid' ? ` — "${t.note}"` : ''
+  return `${place}${note}`
+}
+
+function formatDateTime(d) {
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+}
+
+function buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, last10, categoriesWithBudget }) {
   const lines = []
   lines.push(`Spending Summary — Last ${days} Days (${formatDateRange(start, end)})`)
   lines.push('')
@@ -43,17 +53,30 @@ function buildTextSummary({ days, start, end, summary, delta, avgPerDay, project
   if (top.length > 0) {
     lines.push('')
     lines.push('Biggest purchases:')
-    for (const t of top) {
-      lines.push(`- ${money(t.amount)} — ${t.itemName || t.note || t.categoryName} (${t.date.toLocaleDateString()})`)
+    top.forEach((t, i) => {
+      lines.push(`${i + 1}. ${money(t.amount)} — ${describeTx(t)} — ${formatDateTime(t.date)}`)
+    })
+  }
+  if (last10.length > 0) {
+    lines.push('')
+    lines.push(`Last ${last10.length} transaction${last10.length === 1 ? '' : 's'}:`)
+    for (const t of last10) {
+      const sign = t.type === 'deposit' ? '+' : ''
+      lines.push(`- ${formatDateTime(t.date)} — ${describeTx(t)} — ${sign}${money(t.amount)}`)
     }
   }
   return lines.join('\n')
 }
 
-function drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget }) {
+function drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget, top, last10 }) {
   const rowHeight = 26
+  const listRowHeight = 18
   const width = 640
-  const height = 260 + categoriesWithBudget.length * rowHeight
+  const height =
+    260 +
+    categoriesWithBudget.length * rowHeight +
+    (top.length > 0 ? 32 + top.length * listRowHeight : 0) +
+    (last10.length > 0 ? 32 + last10.length * listRowHeight : 0)
   const canvas = document.createElement('canvas')
   const scale = 2
   canvas.width = width * scale
@@ -132,6 +155,50 @@ function drawImage({ days, start, end, summary, delta, avgPerDay, projected, cat
     ctx.fillText('No spending logged in this period.', 24, y)
   }
 
+  const drawListSection = (title, rows, formatRow) => {
+    if (rows.length === 0) return
+    y += 24
+    ctx.strokeStyle = '#e2e8f0'
+    ctx.beginPath()
+    ctx.moveTo(24, y)
+    ctx.lineTo(width - 24, y)
+    ctx.stroke()
+    y += 20
+    ctx.fillStyle = '#0f172a'
+    ctx.font = 'bold 13px Arial, sans-serif'
+    ctx.fillText(title, 24, y)
+    y += 4
+    rows.forEach((t, i) => {
+      y += listRowHeight
+      const { label, amountStr, amountColor } = formatRow(t, i)
+      ctx.fillStyle = '#334155'
+      ctx.font = '12px Arial, sans-serif'
+      const maxLabelWidth = width - 150
+      let text = label
+      while (ctx.measureText(text).width > maxLabelWidth && text.length > 3) {
+        text = text.slice(0, -4) + '…'
+      }
+      ctx.fillText(text, 24, y)
+      ctx.textAlign = 'right'
+      ctx.fillStyle = amountColor
+      ctx.font = 'bold 12px Arial, sans-serif'
+      ctx.fillText(amountStr, width - 24, y)
+      ctx.textAlign = 'left'
+    })
+  }
+
+  drawListSection('BIGGEST PURCHASES', top, (t, i) => ({
+    label: `${i + 1}. ${describeTx(t)} — ${formatDateTime(t.date)}`,
+    amountStr: money(t.amount),
+    amountColor: '#0f172a',
+  }))
+
+  drawListSection(`LAST ${last10.length} TRANSACTION${last10.length === 1 ? '' : 'S'}`, last10, (t) => ({
+    label: `${formatDateTime(t.date)} — ${describeTx(t)}`,
+    amountStr: `${t.type === 'deposit' ? '+' : ''}${money(t.amount)}`,
+    amountColor: t.type === 'deposit' ? '#059669' : '#0f172a',
+  }))
+
   ctx.fillStyle = '#94a3b8'
   ctx.font = '11px Arial, sans-serif'
   ctx.fillText(`Generated ${new Date().toLocaleString()} · BudgetTracker`, 24, height - 16)
@@ -164,9 +231,10 @@ export default function ReportsPage() {
   const projected = avgPerDay * daysInMonth
 
   const top = useMemo(() => topPurchases(transactions, 5), [transactions])
+  const last10 = useMemo(() => transactions.slice(0, 10), [transactions])
 
   const copyAsText = async () => {
-    const text = buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, categoriesWithBudget })
+    const text = buildTextSummary({ days, start, end, summary, delta, avgPerDay, projected, top, last10, categoriesWithBudget })
     try {
       await navigator.clipboard.writeText(text)
       setCopyStatus('Copied to clipboard!')
@@ -177,7 +245,7 @@ export default function ReportsPage() {
   }
 
   const downloadImage = () => {
-    const canvas = drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget })
+    const canvas = drawImage({ days, start, end, summary, delta, avgPerDay, projected, categoriesWithBudget, top, last10 })
     canvas.toBlob((blob) => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
