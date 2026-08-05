@@ -138,12 +138,12 @@ export function seedJune2026() {
         name: 'To Ally Savings',
         account: 'Ally – 8196',
         items: [
-          item('Vehicle Sinking', '', 0, true),
-          item('House Maintenance', '', 100, true),
-          item('College', '', 500, true),
-          item("Piper's Graduation Trip", '', 100, true),
-          item('England Vacation', '', 100, true),
-          item('J & A Roth IRAs', '', 650, true),
+          item('To Ally Savings', '', 0, true),
+          item('To Ally Savings', '', 100, true),
+          item('To Ally Savings', '', 500, true),
+          item('To Ally Savings', '', 100, true),
+          item('To Ally Savings', '', 100, true),
+          item('To Ally Savings', '', 650, true),
         ],
       },
       {
