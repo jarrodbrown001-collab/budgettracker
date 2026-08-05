@@ -36,7 +36,7 @@ export default function BudgetReference({ month }) {
             placeholder="Filter by category or item…"
             className="mb-3 w-full max-w-xs rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
           />
-          <div className="max-h-72 overflow-y-auto">
+          <div className="max-h-[36rem] overflow-y-auto">
             <table className="w-full min-w-[480px] text-sm">
               <thead className="sticky top-0 bg-white dark:bg-slate-900">
                 <tr className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400">

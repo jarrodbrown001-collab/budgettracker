@@ -48,7 +48,7 @@ function ensureMonth(doc, key) {
   }
 }
 
-function PendingReview({ doc, setDoc }) {
+function usePendingReview(doc, setDoc) {
   const fileRef = useRef(null)
   const csvFileRef = useRef(null)
   const [status, setStatus] = useState('')
@@ -207,51 +207,81 @@ function PendingReview({ doc, setDoc }) {
     setPendingDiscard(null)
   }
 
-  return (
-    <>
-      <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Import Transactions
-            </h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Import your weekly USAA CSV export (Settings → Download Transactions on usaa.com),
-              then assign each one to a category and item below. Pending transactions are skipped
-              automatically — re-export once they post.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => csvFileRef.current?.click()}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
-            >
-              Import USAA CSV
-            </button>
-            <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={onImportCsv} />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
-            >
-              Import (.json)
-            </button>
-            <input ref={fileRef} type="file" accept="application/json" hidden onChange={onImport} />
-          </div>
-        </div>
-        {status && <p className="mt-2 text-sm text-slate-500">{status}</p>}
-      </section>
+  return {
+    fileRef,
+    csvFileRef,
+    status,
+    onImport,
+    onImportCsv,
+    pending,
+    doc,
+    latestMonth,
+    groupsForDate,
+    selections,
+    setSelection,
+    defaultSplits,
+    splitsValid,
+    assign,
+    pendingDiscard,
+    setPendingDiscard,
+    runDiscard,
+  }
+}
 
-      {pending.length > 0 && (
-        <section className="rounded-lg border border-amber-300 bg-white dark:border-amber-800 dark:bg-slate-900">
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-            {pending.length} to review
-          </div>
-          {pending.map((tx) => {
-            const groups = groupsForDate(tx.date)
-            const sel = selections[tx.id] || {}
-            const willCreateMonth = !doc.months[monthKeyOf(tx.date)]
+function ImportControls({ pr }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Import Transactions
+          </h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Import your weekly USAA CSV export (Settings → Download Transactions on usaa.com),
+            then assign each one to a category and item below. Pending transactions are skipped
+            automatically — re-export once they post.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => pr.csvFileRef.current?.click()}
+            className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+          >
+            Import USAA CSV
+          </button>
+          <input ref={pr.csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={pr.onImportCsv} />
+          <button
+            type="button"
+            onClick={() => pr.fileRef.current?.click()}
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          >
+            Import (.json)
+          </button>
+          <input ref={pr.fileRef} type="file" accept="application/json" hidden onChange={pr.onImport} />
+        </div>
+      </div>
+      {pr.status && <p className="mt-2 text-sm text-slate-500">{pr.status}</p>}
+    </section>
+  )
+}
+
+function PendingList({ pr }) {
+  return (
+    <section className="flex h-full flex-col rounded-lg border border-amber-300 bg-white dark:border-amber-800 dark:bg-slate-900">
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+        {pr.pending.length > 0 ? `${pr.pending.length} to review` : 'Transactions to Track'}
+      </div>
+      {pr.pending.length === 0 ? (
+        <p className="p-4 text-sm text-slate-400">
+          Nothing to review right now — import a CSV or JSON file to get started.
+        </p>
+      ) : (
+        <div className="max-h-[36rem] overflow-y-auto">
+          {pr.pending.map((tx) => {
+            const groups = pr.groupsForDate(tx.date)
+            const sel = pr.selections[tx.id] || {}
+            const willCreateMonth = !pr.doc.months[monthKeyOf(tx.date)]
             return (
               <div key={tx.id} className="border-b border-slate-100 p-4 last:border-b-0 dark:border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -277,7 +307,7 @@ function PendingReview({ doc, setDoc }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setPendingDiscard(tx)}
+                    onClick={() => pr.setPendingDiscard(tx)}
                     className="text-xs text-slate-400 hover:text-red-500"
                   >
                     Discard
@@ -286,20 +316,20 @@ function PendingReview({ doc, setDoc }) {
                 {willCreateMonth && (
                   <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
                     {labelFor(monthKeyOf(tx.date))} doesn't exist yet — assigning will create it
-                    by copying {latestMonth?.label}'s categories.
+                    by copying {pr.latestMonth?.label}'s categories.
                   </p>
                 )}
                 <div className="mt-2 space-y-2">
                   <SplitAllocator
                     groups={groups}
                     total={tx.amount}
-                    splits={sel.splits || defaultSplits(tx)}
-                    onChange={(splits) => setSelection(tx.id, { splits })}
+                    splits={sel.splits || pr.defaultSplits(tx)}
+                    onChange={(splits) => pr.setSelection(tx.id, { splits })}
                   />
                   <button
                     type="button"
-                    disabled={!splitsValid(tx, sel.splits || defaultSplits(tx))}
-                    onClick={() => assign(tx)}
+                    disabled={!pr.splitsValid(tx, sel.splits || pr.defaultSplits(tx))}
+                    onClick={() => pr.assign(tx)}
                     className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
                   >
                     Assign
@@ -308,23 +338,24 @@ function PendingReview({ doc, setDoc }) {
               </div>
             )
           })}
-        </section>
+        </div>
       )}
 
       <ConfirmDialog
-        open={!!pendingDiscard}
+        open={!!pr.pendingDiscard}
         title="Discard transaction?"
-        message={`This removes the ${pendingDiscard ? money(pendingDiscard.amount) : ''} ${pendingDiscard?.type} from your review list without logging it anywhere. This can't be undone.`}
+        message={`This removes the ${pr.pendingDiscard ? money(pr.pendingDiscard.amount) : ''} ${pr.pendingDiscard?.type} from your review list without logging it anywhere. This can't be undone.`}
         confirmLabel="Discard"
-        onConfirm={runDiscard}
-        onCancel={() => setPendingDiscard(null)}
+        onConfirm={pr.runDiscard}
+        onCancel={() => pr.setPendingDiscard(null)}
       />
-    </>
+    </section>
   )
 }
 
 export default function TransactionsPage() {
   const { doc, setDoc, month, updateMonth } = useBudget()
+  const pr = usePendingReview(doc, setDoc)
   const [type, setType] = useState('expense')
   const [amount, setAmount] = useState(0)
   const [splits, setSplits] = useState([emptySplit(0)])
@@ -401,8 +432,12 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <BudgetReference month={month} />
-      <PendingReview doc={doc} setDoc={setDoc} />
+      <ImportControls pr={pr} />
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <BudgetReference month={month} />
+        <PendingList pr={pr} />
+      </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
         <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
