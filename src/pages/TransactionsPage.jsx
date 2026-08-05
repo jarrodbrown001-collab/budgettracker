@@ -8,6 +8,7 @@ import { parseUsaaCsv } from '../lib/csvImport'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MoneyInput from '../components/MoneyInput'
 import SplitAllocator, { emptySplit } from '../components/SplitAllocator'
+import BudgetReference from '../components/BudgetReference'
 
 function todayStr() {
   const d = new Date()
@@ -400,6 +401,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6">
+      <BudgetReference month={month} />
       <PendingReview doc={doc} setDoc={setDoc} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
