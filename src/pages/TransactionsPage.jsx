@@ -52,7 +52,7 @@ function usePendingReview(doc, setDoc) {
   const fileRef = useRef(null)
   const csvFileRef = useRef(null)
   const [status, setStatus] = useState('')
-  const [selections, setSelections] = useState({}) // { [pendingId]: { splits: [{key, itemQuery, groupName, itemName, amount}] } }
+  const [selections, setSelections] = useState({}) // { [pendingId]: { splits: [{key, itemQuery, groupName, itemName, amount}], note } }
   const [pendingDiscard, setPendingDiscard] = useState(null)
 
   const pending = [...(doc.pendingTransactions || [])].sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -147,6 +147,16 @@ function usePendingReview(doc, setDoc) {
     return Math.abs(sum - tx.amount) < 0.005
   }
 
+  // Merchant/description stays the transaction's identity; a user-added
+  // comment is appended rather than replacing it, so re-importing the same
+  // CSV row still dedupes against the original merchant text.
+  const noteFor = (tx, sel) => {
+    const base = tx.merchant || tx.note || ''
+    const extra = (sel?.note || '').trim()
+    if (!extra) return base
+    return base ? `${base} — ${extra}` : extra
+  }
+
   const assign = (tx) => {
     const sel = selections[tx.id]
     const splits = (sel?.splits || defaultSplits(tx)).filter(
@@ -159,6 +169,7 @@ function usePendingReview(doc, setDoc) {
       const month = next.months[key]
       const loggedAt = new Date(`${tx.date}T${tx.time || '12:00'}:00`).toISOString()
 
+      const finalNote = noteFor(tx, sel)
       const records = []
       const deltas = {} // itemId -> spent delta
       for (const row of splits) {
@@ -171,7 +182,7 @@ function usePendingReview(doc, setDoc) {
           amount: Number(row.amount),
           groupId: group.id,
           itemId: item.id,
-          note: tx.merchant || tx.note || '',
+          note: finalNote,
           loggedAt,
         })
         deltas[item.id] = (deltas[item.id] || 0) + Number(row.amount)
@@ -326,6 +337,15 @@ function PendingList({ pr }) {
                     splits={sel.splits || pr.defaultSplits(tx)}
                     onChange={(splits) => pr.setSelection(tx.id, { splits })}
                   />
+                  <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Note (optional)
+                    <input
+                      value={sel.note || ''}
+                      onChange={(e) => pr.setSelection(tx.id, { note: e.target.value })}
+                      placeholder="e.g. split with neighbor, gift for Piper…"
+                      className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+                    />
+                  </label>
                   <button
                     type="button"
                     disabled={!pr.splitsValid(tx, sel.splits || pr.defaultSplits(tx))}
