@@ -37,44 +37,33 @@ export default function BudgetReference({ month }) {
             className="mb-3 w-full max-w-xs rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
           />
           <div className="max-h-[36rem] overflow-y-auto">
-            <table className="w-full min-w-[480px] text-sm">
-              <thead className="sticky top-0 bg-white dark:bg-slate-900">
-                <tr className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <th className="py-1 pr-2">Category</th>
-                  <th className="py-1 pr-2">Item</th>
-                  <th className="py-1 pr-2 text-right">Planned</th>
-                  <th className="py-1 pr-2 text-right">Spent</th>
-                  <th className="py-1 pr-2 text-right">Remaining</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(({ groupName, item }) => {
-                  const rem = remaining(item)
-                  return (
-                    <tr key={item.id} className="border-t border-slate-100 dark:border-slate-800">
-                      <td className="py-1 pr-2 text-slate-500 dark:text-slate-400">{groupName}</td>
-                      <td className="py-1 pr-2">{item.name || 'Unnamed item'}</td>
-                      <td className="py-1 pr-2 text-right">{money(item.planned)}</td>
-                      <td className="py-1 pr-2 text-right">{money(item.spent)}</td>
-                      <td
-                        className={`py-1 pr-2 text-right font-medium ${
+            {rows.length === 0 ? (
+              <p className="py-3 text-center text-sm text-slate-400">No items match "{query}"</p>
+            ) : (
+              rows.map(({ groupName, item }) => {
+                const rem = remaining(item)
+                return (
+                  <div key={item.id} className="border-t border-slate-100 py-1.5 first:border-t-0 dark:border-slate-800">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate text-sm font-medium">{item.name || 'Unnamed item'}</span>
+                      <span
+                        className={`shrink-0 text-sm font-medium ${
                           rem < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                       >
-                        {money(rem)}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-3 text-center text-slate-400">
-                      No items match "{query}"
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        {money(rem)} left
+                      </span>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-2 text-xs text-slate-400">
+                      <span className="min-w-0 truncate">{groupName}</span>
+                      <span className="shrink-0">
+                        {money(item.spent)} / {money(item.planned)}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       )}
