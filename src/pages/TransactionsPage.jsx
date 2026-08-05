@@ -4,6 +4,7 @@ import { newId, readPendingTransactionsFile } from '../lib/storage'
 import { money } from '../lib/budget'
 import { cloneMonthForward } from '../lib/monthCopy'
 import { findExistingMatch } from '../lib/transactionDedupe'
+import { parseUsaaCsv } from '../lib/csvImport'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MoneyInput from '../components/MoneyInput'
 
@@ -47,6 +48,7 @@ function ensureMonth(doc, key) {
 
 function PendingReview({ doc, setDoc }) {
   const fileRef = useRef(null)
+  const csvFileRef = useRef(null)
   const [status, setStatus] = useState('')
   const [selections, setSelections] = useState({}) // { [pendingId]: { groupName, itemName } }
   const [pendingDiscard, setPendingDiscard] = useState(null)
@@ -76,25 +78,46 @@ function PendingReview({ doc, setDoc }) {
     return !!findExistingMatch(doc, candidate)
   }
 
+  const mergeFreshItems = (items, extraNote = '') => {
+    const existingPending = doc.pendingTransactions || []
+    const fresh = []
+    let dupCount = 0
+    for (const it of items) {
+      if (isDuplicate(it, existingPending)) {
+        dupCount++
+      } else {
+        fresh.push(it)
+      }
+    }
+    setDoc((prev) => ({ ...prev, pendingTransactions: [...(prev.pendingTransactions || []), ...fresh] }))
+    setStatus(
+      `Imported ${fresh.length} new transaction(s) to review${dupCount ? ` — skipped ${dupCount} already on file.` : '.'}${extraNote}`,
+    )
+  }
+
   const onImport = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     try {
       const items = await readPendingTransactionsFile(file)
-      const existingPending = doc.pendingTransactions || []
-      const fresh = []
-      let dupCount = 0
-      for (const it of items) {
-        if (isDuplicate(it, existingPending)) {
-          dupCount++
-        } else {
-          fresh.push(it)
-        }
-      }
-      setDoc((prev) => ({ ...prev, pendingTransactions: [...(prev.pendingTransactions || []), ...fresh] }))
-      setStatus(
-        `Imported ${fresh.length} new transaction(s) to review${dupCount ? ` — skipped ${dupCount} already on file.` : '.'}`,
-      )
+      mergeFreshItems(items)
+    } catch (err) {
+      setStatus(`Import failed: ${err.message}`)
+    } finally {
+      e.target.value = ''
+    }
+  }
+
+  const onImportCsv = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const { items, skippedPending, skippedInvalid } = parseUsaaCsv(text)
+      const notes = []
+      if (skippedPending) notes.push(`${skippedPending} still pending (re-export once posted)`)
+      if (skippedInvalid) notes.push(`${skippedInvalid} row(s) couldn't be read`)
+      mergeFreshItems(items, notes.length ? ` (${notes.join(', ')})` : '')
     } catch (err) {
       setStatus(`Import failed: ${err.message}`)
     } finally {
@@ -184,15 +207,24 @@ function PendingReview({ doc, setDoc }) {
               Import Transactions
             </h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Import a batch parsed from your bank email alerts, then assign each to a category
-              and item below.
+              Import your weekly USAA CSV export (Settings → Download Transactions on usaa.com),
+              then assign each one to a category and item below. Pending transactions are skipped
+              automatically — re-export once they post.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => fileRef.current?.click()}
+              onClick={() => csvFileRef.current?.click()}
               className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
+            >
+              Import USAA CSV
+            </button>
+            <input ref={csvFileRef} type="file" accept=".csv,text/csv" hidden onChange={onImportCsv} />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
             >
               Import (.json)
             </button>
@@ -227,6 +259,11 @@ function PendingReview({ doc, setDoc }) {
                     <span className="font-semibold">{money(tx.amount)}</span>
                     <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
                       {tx.date} {tx.time || ''} — {tx.merchant || tx.note || 'No description'}
+                      {tx.usaaCategory && (
+                        <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                          USAA: {tx.usaaCategory}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <button
