@@ -7,6 +7,7 @@ import { findExistingMatch } from '../lib/transactionDedupe'
 import { parseUsaaCsv } from '../lib/csvImport'
 import ConfirmDialog from '../components/ConfirmDialog'
 import MoneyInput from '../components/MoneyInput'
+import SplitAllocator, { emptySplit } from '../components/SplitAllocator'
 
 function todayStr() {
   const d = new Date()
@@ -50,7 +51,7 @@ function PendingReview({ doc, setDoc }) {
   const fileRef = useRef(null)
   const csvFileRef = useRef(null)
   const [status, setStatus] = useState('')
-  const [selections, setSelections] = useState({}) // { [pendingId]: { groupName, itemName } }
+  const [selections, setSelections] = useState({}) // { [pendingId]: { splits: [{key, itemQuery, groupName, itemName, amount}] } }
   const [pendingDiscard, setPendingDiscard] = useState(null)
 
   const pending = [...(doc.pendingTransactions || [])].sort((a, b) => (a.date < b.date ? 1 : -1))
@@ -134,48 +135,55 @@ function PendingReview({ doc, setDoc }) {
     return (doc.months[key] || latestMonth)?.groups || []
   }
 
-  // Same pattern as the manual "Log a Transaction" form: item is searchable
-  // across every category without picking a category first, and picking one
-  // auto-fills the category.
-  const onItemQueryChange = (tx, groups, value) => {
-    const match = groups
-      .flatMap((g) => g.items.map((it) => ({ label: `${g.name} › ${it.name || 'Unnamed item'}`, groupName: g.name, itemName: it.name })))
-      .find((o) => o.label === value)
-    if (match) {
-      setSelection(tx.id, { itemQuery: value, groupName: match.groupName, itemName: match.itemName })
-    } else {
-      setSelection(tx.id, { itemQuery: value, itemName: '' })
-    }
+  // Stable key (not newId()) so the default single-split row doesn't remount
+  // on every unrelated re-render before the user has touched it.
+  const defaultSplits = (tx) => [{ key: `default-${tx.id}`, itemQuery: '', groupName: '', itemName: '', amount: tx.amount }]
+
+  const splitsValid = (tx, splits) => {
+    const rows = splits.filter((r) => r.groupName && r.itemName && (Number(r.amount) || 0) > 0)
+    if (rows.length === 0) return false
+    const sum = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    return Math.abs(sum - tx.amount) < 0.005
   }
 
   const assign = (tx) => {
     const sel = selections[tx.id]
-    if (!sel?.groupName || !sel?.itemName) return
+    const splits = (sel?.splits || defaultSplits(tx)).filter(
+      (r) => r.groupName && r.itemName && (Number(r.amount) || 0) > 0,
+    )
+    if (!splitsValid(tx, splits)) return
     setDoc((prev) => {
       const key = monthKeyOf(tx.date)
       const next = ensureMonth(prev, key)
       const month = next.months[key]
-      const group = month.groups.find((g) => g.name === sel.groupName)
-      const item = group?.items.find((it) => it.name === sel.itemName)
-      if (!group || !item) return prev
       const loggedAt = new Date(`${tx.date}T${tx.time || '12:00'}:00`).toISOString()
-      const record = {
-        id: newId(),
-        type: tx.type,
-        amount: tx.amount,
-        groupId: group.id,
-        itemId: item.id,
-        note: tx.merchant || tx.note || '',
-        loggedAt,
+
+      const records = []
+      const deltas = {} // itemId -> spent delta
+      for (const row of splits) {
+        const group = month.groups.find((g) => g.name === row.groupName)
+        const item = group?.items.find((it) => it.name === row.itemName)
+        if (!group || !item) continue
+        records.push({
+          id: newId(),
+          type: tx.type,
+          amount: Number(row.amount),
+          groupId: group.id,
+          itemId: item.id,
+          note: tx.merchant || tx.note || '',
+          loggedAt,
+        })
+        deltas[item.id] = (deltas[item.id] || 0) + Number(row.amount)
       }
+      if (records.length === 0) return prev
+
       const updatedMonth = {
         ...month,
-        transactions: [...(month.transactions || []), record],
-        groups: month.groups.map((g) =>
-          g.id !== group.id
-            ? g
-            : { ...g, items: g.items.map((it) => (it.id !== item.id ? it : { ...it, spent: (Number(it.spent) || 0) + tx.amount })) },
-        ),
+        transactions: [...(month.transactions || []), ...records],
+        groups: month.groups.map((g) => ({
+          ...g,
+          items: g.items.map((it) => (deltas[it.id] ? { ...it, spent: (Number(it.spent) || 0) + deltas[it.id] } : it)),
+        })),
       }
       return {
         ...next,
@@ -280,44 +288,16 @@ function PendingReview({ doc, setDoc }) {
                     by copying {latestMonth?.label}'s categories.
                   </p>
                 )}
-                <div className="mt-2 flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Item
-                    <input
-                      list={`pending-item-options-${tx.id}`}
-                      value={sel.itemQuery || ''}
-                      onChange={(e) => onItemQueryChange(tx, groups, e.target.value)}
-                      placeholder="Search any item…"
-                      autoComplete="off"
-                      className="mt-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    />
-                    <datalist id={`pending-item-options-${tx.id}`}>
-                      {(sel.groupName ? groups.filter((g) => g.name === sel.groupName) : groups).flatMap((g) =>
-                        g.items.map((it) => (
-                          <option key={`${g.name}:::${it.name}`} value={`${g.name} › ${it.name || 'Unnamed item'}`} />
-                        )),
-                      )}
-                    </datalist>
-                  </label>
-                  <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Category
-                    <select
-                      value={sel.groupName || ''}
-                      onChange={(e) => setSelection(tx.id, { groupName: e.target.value, itemName: '', itemQuery: '' })}
-                      className="mt-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
-                    >
-                      <option value="">Select category…</option>
-                      {groups.map((g) => (
-                        <option key={g.name} value={g.name}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="mt-1 text-[11px] text-slate-400">Auto-fills from item</span>
-                  </label>
+                <div className="mt-2 space-y-2">
+                  <SplitAllocator
+                    groups={groups}
+                    total={tx.amount}
+                    splits={sel.splits || defaultSplits(tx)}
+                    onChange={(splits) => setSelection(tx.id, { splits })}
+                  />
                   <button
                     type="button"
-                    disabled={!sel.groupName || !sel.itemName}
+                    disabled={!splitsValid(tx, sel.splits || defaultSplits(tx))}
                     onClick={() => assign(tx)}
                     className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
                   >
@@ -346,58 +326,48 @@ export default function TransactionsPage() {
   const { doc, setDoc, month, updateMonth } = useBudget()
   const [type, setType] = useState('expense')
   const [amount, setAmount] = useState(0)
-  const [groupId, setGroupId] = useState('')
-  const [itemId, setItemId] = useState('')
-  const [itemQuery, setItemQuery] = useState('')
+  const [splits, setSplits] = useState([emptySplit(0)])
   const [note, setNote] = useState('')
   const [dateStr, setDateStr] = useState(todayStr())
   const [timeStr, setTimeStr] = useState(nowStr())
   const [pendingDelete, setPendingDelete] = useState(null)
 
-  const group = month.groups.find((g) => g.id === groupId)
   const transactions = [...(month.transactions || [])].sort((a, b) => (a.loggedAt < b.loggedAt ? 1 : -1))
 
-  // Every item across every category, searchable regardless of whether a
-  // category has been picked yet — picking one auto-fills the category.
-  const allItemOptions = month.groups.flatMap((g) =>
-    g.items.map((it) => ({ key: `${g.id}:::${it.id}`, label: `${g.name} › ${it.name || 'Unnamed item'}`, groupId: g.id, itemId: it.id })),
-  )
-  const itemOptionsForSearch = groupId ? allItemOptions.filter((o) => o.groupId === groupId) : allItemOptions
-
-  const onItemQueryChange = (value) => {
-    setItemQuery(value)
-    const match = allItemOptions.find((o) => o.label === value)
-    if (match) {
-      setGroupId(match.groupId)
-      setItemId(match.itemId)
-    } else {
-      setItemId('')
-    }
-  }
+  const validSplits = splits.filter((r) => r.groupName && r.itemName && (Number(r.amount) || 0) > 0)
+  const splitsBalanced =
+    validSplits.length > 0 && Math.abs(validSplits.reduce((s, r) => s + (Number(r.amount) || 0), 0) - amount) < 0.005
 
   const totalExpenses = (month.transactions || []).filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
   const totalDeposits = (month.transactions || []).filter((t) => t.type === 'deposit').reduce((s, t) => s + t.amount, 0)
 
   const addTransaction = (e) => {
     e.preventDefault()
-    const amt = amount
-    if (!amt || amt <= 0 || !groupId || !itemId) return
+    if (!amount || amount <= 0 || !splitsBalanced) return
     const loggedAt = new Date(`${dateStr}T${timeStr}:00`).toISOString()
-    const tx = { id: newId(), type, amount: amt, groupId, itemId, note, loggedAt }
+
+    const records = []
+    const deltas = {} // itemId -> spent delta
+    for (const row of validSplits) {
+      const g = month.groups.find((gr) => gr.name === row.groupName)
+      const it = g?.items.find((i) => i.name === row.itemName)
+      if (!g || !it) continue
+      records.push({ id: newId(), type, amount: Number(row.amount), groupId: g.id, itemId: it.id, note, loggedAt })
+      deltas[it.id] = (deltas[it.id] || 0) + Number(row.amount)
+    }
+    if (records.length === 0) return
+
     updateMonth((m) => ({
       ...m,
-      transactions: [...(m.transactions || []), tx],
-      groups: m.groups.map((g) =>
-        g.id !== groupId
-          ? g
-          : { ...g, items: g.items.map((it) => (it.id !== itemId ? it : { ...it, spent: (Number(it.spent) || 0) + amt })) },
-      ),
+      transactions: [...(m.transactions || []), ...records],
+      groups: m.groups.map((g) => ({
+        ...g,
+        items: g.items.map((it) => (deltas[it.id] ? { ...it, spent: (Number(it.spent) || 0) + deltas[it.id] } : it)),
+      })),
     }))
     setAmount(0)
+    setSplits([emptySplit(0)])
     setNote('')
-    setItemQuery('')
-    setGroupId('')
-    setItemId('')
     setDateStr(todayStr())
     setTimeStr(nowStr())
   }
@@ -458,45 +428,12 @@ export default function TransactionsPage() {
             />
           </label>
 
-          <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-            Item
-            <input
-              list="tx-item-options"
-              value={itemQuery}
-              onChange={(e) => onItemQueryChange(e.target.value)}
-              placeholder="Search any item…"
-              autoComplete="off"
-              className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-            />
-            <datalist id="tx-item-options">
-              {itemOptionsForSearch.map((o) => (
-                <option key={o.key} value={o.label} />
-              ))}
-            </datalist>
-            {!itemId && itemQuery && <span className="mt-1 text-xs text-amber-600 dark:text-amber-400">No exact match yet</span>}
-          </label>
-
-          <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
-            Category / bucket
-            <select
-              required
-              value={groupId}
-              onChange={(e) => {
-                setGroupId(e.target.value)
-                setItemId('')
-                setItemQuery('')
-              }}
-              className="mt-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
-            >
-              <option value="">Select category…</option>
-              {month.groups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-            <span className="mt-1 text-xs text-slate-400">Auto-fills when you pick an item above</span>
-          </label>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Category / item</span>
+            <div className="mt-1">
+              <SplitAllocator groups={month.groups} total={amount} splits={splits} onChange={setSplits} />
+            </div>
+          </div>
 
           <label className="flex flex-col text-xs font-medium text-slate-500 dark:text-slate-400">
             Date
@@ -529,7 +466,11 @@ export default function TransactionsPage() {
           </label>
 
           <div className="flex items-end sm:col-span-2 lg:col-span-4">
-            <button type="submit" className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700">
+            <button
+              type="submit"
+              disabled={!amount || amount <= 0 || !splitsBalanced}
+              className="rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+            >
               Log transaction
             </button>
           </div>
