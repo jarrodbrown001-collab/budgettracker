@@ -14,8 +14,11 @@ export function findExistingMatch(doc, candidate) {
     for (const t of doc.months[key].transactions || []) {
       if (Math.abs((Number(t.amount) || 0) - amount) > 0.005) continue
       if (isoDateOf(t.loggedAt) !== candidate.date) continue
+      // The logged note may be just the merchant, or the merchant with a
+      // user-added comment appended ("Target — Piper birthday gift"), so
+      // match on containment rather than exact equality.
       const loggedNote = (t.note || '').trim().toLowerCase()
-      if (merchant && loggedNote && loggedNote !== merchant) continue
+      if (merchant && loggedNote && !loggedNote.includes(merchant)) continue
       return t
     }
   }

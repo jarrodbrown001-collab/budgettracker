@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useBudget } from '../lib/BudgetContext'
 import { newId, readPendingTransactionsFile } from '../lib/storage'
 import { money } from '../lib/budget'
@@ -55,9 +55,25 @@ function usePendingReview(doc, setDoc) {
   const [selections, setSelections] = useState({}) // { [pendingId]: { splits: [{key, itemQuery, groupName, itemName, amount}], note } }
   const [pendingDiscard, setPendingDiscard] = useState(null)
 
-  const pending = [...(doc.pendingTransactions || [])].sort((a, b) => (a.date < b.date ? 1 : -1))
+  const rawPending = doc.pendingTransactions || []
+  // A pending item can end up matching an already-logged transaction after
+  // import — e.g. it was manually logged from the "Log a Transaction" form,
+  // or assigned from an earlier overlapping export. Don't surface it for
+  // review, and quietly drop it from the queue so it doesn't linger.
+  const pending = rawPending.filter((p) => !findExistingMatch(doc, p)).sort((a, b) => (a.date < b.date ? 1 : -1))
   const monthKeys = Object.keys(doc.months).sort()
   const latestMonth = doc.months[monthKeys[monthKeys.length - 1]]
+
+  useEffect(() => {
+    const stale = rawPending.filter((p) => findExistingMatch(doc, p))
+    if (stale.length === 0) return
+    const staleIds = new Set(stale.map((p) => p.id))
+    setDoc((prev) => ({
+      ...prev,
+      pendingTransactions: (prev.pendingTransactions || []).filter((p) => !staleIds.has(p.id)),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc])
 
   // A transaction already on file — either still awaiting review or already
   // assigned into a month's ledger — is skipped instead of re-added, even if
