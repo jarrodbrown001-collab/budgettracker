@@ -41,6 +41,23 @@ function parseCsvRows(text) {
   return rows
 }
 
+// USAA formats the Date column differently depending on which export you
+// run — "Download Transactions" for a date range uses M/D/YYYY, while
+// "Last 50 Transactions" uses ISO YYYY-MM-DD. Accept either.
+function parseUsaaDate(rawDate) {
+  const iso = rawDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (iso) {
+    const [, y, m, d] = iso
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  const slash = rawDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (slash) {
+    const [, m, d, y] = slash
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
+  }
+  return null
+}
+
 function slugify(s) {
   return s
     .toLowerCase()
@@ -86,13 +103,12 @@ export function parseUsaaCsv(text) {
     }
 
     const rawDate = (row[dateIdx] || '').trim()
-    const [m, d, y] = rawDate.split('/')
+    const date = parseUsaaDate(rawDate)
     const amount = parseFloat(row[amtIdx])
-    if (!m || !d || !y || Number.isNaN(amount)) {
+    if (!date || Number.isNaN(amount)) {
       skippedInvalid++
       continue
     }
-    const date = `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
     const merchant = (row[descIdx] || row[origIdx] || '').trim() || 'Unknown'
     const usaaCategoryRaw = (row[catIdx] || '').trim()
     const usaaCategory = IGNORED_USAA_CATEGORIES.has(usaaCategoryRaw) ? '' : usaaCategoryRaw
