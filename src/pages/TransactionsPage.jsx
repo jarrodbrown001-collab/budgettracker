@@ -26,6 +26,12 @@ function bucketLabel(month, tx) {
   return `${group.name}${item ? ` › ${item.name || 'Unnamed item'}` : ''}`
 }
 
+// Expenses increase how much of the budget item has been spent; deposits
+// (refunds, reimbursements, money coming back in) reduce it.
+function signedDelta(type, amount) {
+  return type === 'deposit' ? -amount : amount
+}
+
 function monthKeyOf(dateStr) {
   return dateStr.slice(0, 7)
 }
@@ -202,7 +208,7 @@ function usePendingReview(doc, setDoc) {
           note: finalNote,
           loggedAt,
         })
-        deltas[item.id] = (deltas[item.id] || 0) + Number(row.amount)
+        deltas[item.id] = (deltas[item.id] || 0) + signedDelta(tx.type, Number(row.amount))
       }
       if (records.length === 0) return prev
 
@@ -440,7 +446,7 @@ export default function TransactionsPage() {
         note,
         loggedAt,
       })
-      deltas[it.id] = (deltas[it.id] || 0) + Number(row.amount)
+      deltas[it.id] = (deltas[it.id] || 0) + signedDelta(type, Number(row.amount))
     }
     if (records.length === 0) return
 
@@ -474,7 +480,7 @@ export default function TransactionsPage() {
                   ? it
                   : {
                       ...it,
-                      spent: (Number(it.spent) || 0) - tx.amount,
+                      spent: (Number(it.spent) || 0) - signedDelta(tx.type, tx.amount),
                       // Deleting the transaction that "Paid" created un-pays the item too.
                       ...(it.paidTransactionId === tx.id ? { paid: false, paidTransactionId: null } : {}),
                     },
