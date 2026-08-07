@@ -12,7 +12,12 @@ export function findExistingMatch(doc, candidate) {
   const merchant = (candidate.merchant || candidate.note || '').trim().toLowerCase()
   for (const key of Object.keys(doc.months)) {
     for (const t of doc.months[key].transactions || []) {
-      if (Math.abs((Number(t.amount) || 0) - amount) > 0.005) continue
+      // A split transaction logs one record per category with only its
+      // share of the total, so comparing against t.amount alone would never
+      // match — sourceAmount (when present) carries the original total each
+      // split shares, so the candidate's full amount matches every sibling.
+      const loggedAmount = Number(t.sourceAmount ?? t.amount) || 0
+      if (Math.abs(loggedAmount - amount) > 0.005) continue
       if (isoDateOf(t.loggedAt) !== candidate.date) continue
       // The logged note may be just the merchant, or the merchant with a
       // user-added comment appended ("Target — Piper birthday gift"), so

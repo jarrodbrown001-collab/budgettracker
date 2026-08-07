@@ -73,12 +73,15 @@ const IGNORED_USAA_CATEGORIES = new Set(['', 'Uncategorized', 'Category Pending'
 
 // Parses a USAA transaction export (Date, Description, Original Description,
 // Category, Amount, Status) into the same pending-transaction shape used by
-// the email-JSON import: { id, type, amount, date, time, merchant }.
-// Pending rows are skipped (their amount can still change before posting) —
-// they'll show up correctly once you export again after they post.
+// the email-JSON import: { id, type, amount, date, time, merchant, status }.
+// Pending rows are included (not skipped) so you can allocate them ahead of
+// time — their amount can still change before posting, so a re-export after
+// posting may add a second entry if the final amount differs (the id is
+// amount-derived); if it posts for the exact same amount the re-import is
+// deduped automatically like any other repeat row.
 export function parseUsaaCsv(text) {
   const rows = parseCsvRows(text.trim())
-  if (rows.length < 2) return { items: [], skippedPending: 0, skippedInvalid: 0 }
+  if (rows.length < 2) return { items: [], pendingCount: 0, skippedInvalid: 0 }
 
   const header = rows[0].map((h) => h.trim())
   const col = (name) => header.indexOf(name)
@@ -91,16 +94,13 @@ export function parseUsaaCsv(text) {
 
   const seen = new Map()
   const items = []
-  let skippedPending = 0
+  let pendingCount = 0
   let skippedInvalid = 0
 
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r]
     const status = (row[statusIdx] || '').trim()
-    if (/pending/i.test(status)) {
-      skippedPending++
-      continue
-    }
+    const isPending = /pending/i.test(status)
 
     const rawDate = (row[dateIdx] || '').trim()
     const date = parseUsaaDate(rawDate)
@@ -109,6 +109,7 @@ export function parseUsaaCsv(text) {
       skippedInvalid++
       continue
     }
+    if (isPending) pendingCount++
     const merchant = (row[descIdx] || row[origIdx] || '').trim() || 'Unknown'
     const usaaCategoryRaw = (row[catIdx] || '').trim()
     const usaaCategory = IGNORED_USAA_CATEGORIES.has(usaaCategoryRaw) ? '' : usaaCategoryRaw
@@ -129,8 +130,9 @@ export function parseUsaaCsv(text) {
       time: '12:00',
       merchant,
       usaaCategory,
+      status: isPending ? 'pending' : 'posted',
     })
   }
 
-  return { items, skippedPending, skippedInvalid }
+  return { items, pendingCount, skippedInvalid }
 }

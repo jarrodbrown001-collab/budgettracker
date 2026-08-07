@@ -131,9 +131,9 @@ function usePendingReview(doc, setDoc) {
     if (!file) return
     try {
       const text = await file.text()
-      const { items, skippedPending, skippedInvalid } = parseUsaaCsv(text)
+      const { items, pendingCount, skippedInvalid } = parseUsaaCsv(text)
       const notes = []
-      if (skippedPending) notes.push(`${skippedPending} still pending (re-export once posted)`)
+      if (pendingCount) notes.push(`${pendingCount} still pending — amount may change before posting`)
       if (skippedInvalid) notes.push(`${skippedInvalid} row(s) couldn't be read`)
       mergeFreshItems(items, notes.length ? ` (${notes.join(', ')})` : '')
     } catch (err) {
@@ -196,6 +196,7 @@ function usePendingReview(doc, setDoc) {
           id: newId(),
           type: tx.type,
           amount: Number(row.amount),
+          sourceAmount: tx.amount,
           groupId: group.id,
           itemId: item.id,
           note: finalNote,
@@ -265,8 +266,9 @@ function ImportControls({ pr }) {
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             Import your weekly USAA CSV export (Settings → Download Transactions on usaa.com),
-            then assign each one to a category and item below. Pending transactions are skipped
-            automatically — re-export once they post.
+            then assign each one to a category and item below. Transactions still pending are
+            included too (tagged "Pending") so you can allocate ahead of time — their amount may
+            still change before they post.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -325,6 +327,14 @@ function PendingList({ pr }) {
                     <span className="font-semibold">{money(tx.amount)}</span>
                     <span className="ml-2 text-sm text-slate-500 dark:text-slate-400">
                       {tx.date} {tx.time || ''} — {tx.merchant || tx.note || 'No description'}
+                      {tx.status === 'pending' && (
+                        <span
+                          className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                          title="Hasn't posted yet — amount may still change"
+                        >
+                          Pending
+                        </span>
+                      )}
                       {tx.usaaCategory && (
                         <span className="ml-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                           USAA: {tx.usaaCategory}
@@ -420,7 +430,16 @@ export default function TransactionsPage() {
       const g = month.groups.find((gr) => gr.name === row.groupName)
       const it = g?.items.find((i) => i.name === row.itemName)
       if (!g || !it) continue
-      records.push({ id: newId(), type, amount: Number(row.amount), groupId: g.id, itemId: it.id, note, loggedAt })
+      records.push({
+        id: newId(),
+        type,
+        amount: Number(row.amount),
+        sourceAmount: amount,
+        groupId: g.id,
+        itemId: it.id,
+        note,
+        loggedAt,
+      })
       deltas[it.id] = (deltas[it.id] || 0) + Number(row.amount)
     }
     if (records.length === 0) return
